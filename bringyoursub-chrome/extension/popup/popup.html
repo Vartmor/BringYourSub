@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
   <link rel="stylesheet" href="popup.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
+
 <body>
   <div class="container">
     <!-- Header -->
@@ -106,7 +108,7 @@
     <section id="tab-settings" class="tab-content">
       <div class="settings-group">
         <h3>Subtitle Display</h3>
-        
+
         <div class="setting-item">
           <label for="fontSize">Font Size</label>
           <select id="fontSize">
@@ -136,7 +138,7 @@
 
       <div class="settings-group">
         <h3>API Configuration</h3>
-        
+
         <div class="setting-item">
           <label for="model">AI Model</label>
           <select id="model">
@@ -162,18 +164,26 @@
         </div>
 
         <p class="about-description">
-          AI-powered subtitle generator for YouTube videos using your own OpenAI API key. 
+          AI-powered subtitle generator for YouTube videos using your own OpenAI API key.
           Privacy-first with BYOK (Bring Your Own Key) architecture.
         </p>
 
         <div class="about-features">
-          <div class="feature-item">
+          <div class="feature-item trust">
             <span>🔐</span>
-            <span>Your API key stays local</span>
+            <span>API key never leaves your device</span>
+          </div>
+          <div class="feature-item trust">
+            <span>☁️</span>
+            <span>No server - direct to OpenAI</span>
+          </div>
+          <div class="feature-item trust">
+            <span>📊</span>
+            <span>Zero data collection</span>
           </div>
           <div class="feature-item">
             <span>🧠</span>
-            <span>Context-aware translation</span>
+            <span>Smart chunk processing</span>
           </div>
           <div class="feature-item">
             <span>🎙️</span>
@@ -185,8 +195,11 @@
           <a href="https://github.com/Vartmor/BringYourSub" target="_blank" class="link-btn">
             <span>⭐</span> GitHub
           </a>
+          <a href="https://github.com/Vartmor/BringYourSub/blob/main/PRIVACY.md" target="_blank" class="link-btn">
+            <span>🛡️</span> Privacy
+          </a>
           <a href="https://platform.openai.com/api-keys" target="_blank" class="link-btn">
-            <span>🔑</span> Get API Key
+            <span>🔑</span> API Key
           </a>
         </div>
 
@@ -200,4 +213,5 @@
 
   <script src="popup.js" type="module"></script>
 </body>
+
 </html>
