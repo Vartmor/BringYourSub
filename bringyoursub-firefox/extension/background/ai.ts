@@ -2,8 +2,7 @@
  * BringYourSub - Background Service Worker
  * 
  * Handles the main subtitle generation pipeline including:
- * - Native YouTube transcript extraction
- * - Whisper API fallback with cost warnings
+ * - Request transcript from content script
  * - Robust per-chunk translation with retry logic
  * - SRT format generation
  * - Progress reporting to popup
@@ -19,8 +18,6 @@ if (typeof browser !== 'undefined') {
     (globalThis as any).chrome = browser;
 }
 
-import { getNativeYouTubeTranscript } from "../../shared/ai-core/transcript.js";
-import { getWhisperTranscript, whisperSegmentsToSRT } from "../../shared/ai-core/whisper.js";
 import { chunkTranscript, estimateTranscript } from "../../shared/ai-core/chunker.js";
 import { AIPipeline } from "../../shared/ai-core/pipeline.js";
 
@@ -69,68 +66,44 @@ async function handleGenerateSubtitles(
     data: GenerateSubtitlesRequest,
     sendResponse: (response: GenerateSubtitlesResponse) => void
 ): Promise<void> {
-    const { videoId, apiKey, language, model, videoTitle } = data;
-    let usedWhisper = false;
+    const { apiKey, language, model, videoTitle } = data;
     let warning: string | undefined;
 
     try {
-        // Stage 1: Try Native Transcript
-        notifyPopup("Checking for native transcript...", 1, 4);
-        let transcript = await getNativeYouTubeTranscript(videoId);
+        // Stage 1: Get transcript from content script
+        notifyPopup("Extracting transcript from video...", 1, 4);
 
-        // Stage 2: Fallback to Whisper
-        if (!transcript) {
-            notifyPopup("No captions found. Using Whisper (may cost $)...", 1, 4);
-            usedWhisper = true;
+        // Get active tab
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        const tabId = tabs[0]?.id;
 
-            const whisperResult = await getWhisperTranscript(videoId, apiKey, (warn) => {
-                notifyPopup(warn, 1, 4);
-                warning = warn;
-            });
+        if (!tabId) {
+            throw new Error("No active YouTube tab found");
+        }
 
-            if (!whisperResult || !whisperResult.text) {
-                throw new Error(whisperResult?.warning || "Could not transcribe audio");
-            }
-
-            // If Whisper provides segments with timestamps, use them directly
-            if (whisperResult.segments && whisperResult.segments.length > 0) {
-                notifyPopup("Whisper transcription complete. Translating...", 2, 4);
-
-                // Translate the whole text (Whisper already has timestamps)
-                const pipeline = new AIPipeline({
-                    apiKey,
-                    targetLanguage: language,
-                    model: model || "gpt-4o-mini",
-                    videoMetadata: { title: videoTitle, channel: "YouTube" },
-                    onProgress: (msg, current, total) => notifyPopup(msg, 3, 4)
-                });
-
-                // Chunk and translate
-                const chunks = chunkTranscript(whisperResult.text);
-                const result = await pipeline.translateChunks(chunks);
-
-                sendResponse({
-                    subtitles: result.srt,
-                    usedWhisper: true,
-                    warning: whisperResult.warning,
-                    stats: {
-                        totalChunks: result.stats.totalChunks,
-                        successfulChunks: result.stats.successfulChunks,
-                        failedChunks: result.stats.failedChunks
+        // Request transcript from content script
+        let transcript: string | null = null;
+        try {
+            const response = await new Promise<{ transcript: string | null }>((resolve, reject) => {
+                chrome.tabs.sendMessage(tabId, { action: 'GET_TRANSCRIPT' }, (resp) => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                    } else {
+                        resolve(resp || { transcript: null });
                     }
                 });
-                return;
-            }
-
-            transcript = whisperResult.text;
-            warning = whisperResult.warning;
+            });
+            transcript = response.transcript;
+            console.log('[BringYourSub] Transcript received, length:', transcript?.length || 0);
+        } catch (err) {
+            console.log('[BringYourSub] Content script transcript failed:', err);
         }
 
         if (!transcript) {
-            throw new Error("Could not acquire transcript via any method.");
+            throw new Error("No captions available for this video. Please try a video with auto-generated or manual captions.");
         }
 
-        // Stage 3: Analyze and Chunk
+        // Stage 2: Analyze and Chunk
         notifyPopup("Analyzing transcript length...", 2, 4);
         const estimates = estimateTranscript(transcript);
 
@@ -144,7 +117,7 @@ async function handleGenerateSubtitles(
 
         notifyPopup(`Processing ${chunks.length} parts...`, 2, 4);
 
-        // Stage 4: Translation Pipeline
+        // Stage 3: Translation Pipeline
         const pipeline = new AIPipeline({
             apiKey,
             targetLanguage: language,
@@ -153,12 +126,10 @@ async function handleGenerateSubtitles(
                 title: videoTitle,
                 channel: "YouTube Video"
             },
-            onProgress: (msg, current, total) => {
+            onProgress: (msg) => {
                 notifyPopup(msg, 3, 4);
             }
         });
-
-        pipeline.setUsedWhisper(usedWhisper);
 
         const result = await pipeline.translateChunks(chunks);
 
@@ -166,7 +137,7 @@ async function handleGenerateSubtitles(
 
         sendResponse({
             subtitles: result.srt,
-            usedWhisper,
+            usedWhisper: false,
             warning,
             stats: {
                 totalChunks: result.stats.totalChunks,
@@ -186,11 +157,9 @@ async function handleGenerateSubtitles(
             userMessage = "Rate limit exceeded. Please wait a moment and try again.";
         } else if (errorMessage.includes("quota")) {
             userMessage = "API quota exceeded. Check your OpenAI billing settings.";
-        } else if (errorMessage.includes("25MB")) {
-            userMessage = "Video audio is too large. Try a shorter video (under 25 minutes).";
         }
 
-        sendResponse({ error: userMessage, usedWhisper });
+        sendResponse({ error: userMessage });
     }
 }
 

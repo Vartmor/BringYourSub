@@ -468,12 +468,69 @@ function initOverlay(): void {
 initOverlay();
 
 // =====================
+// Transcript Extraction (runs on YouTube page)
+// =====================
+async function extractTranscript(): Promise<string | null> {
+    try {
+        // Try to get ytInitialPlayerResponse from page
+        const scripts = document.querySelectorAll('script');
+        let playerResponse: any = null;
+
+        for (const script of scripts) {
+            const content = script.textContent || '';
+            const match = content.match(/ytInitialPlayerResponse\s*=\s*({.+?});/);
+            if (match) {
+                try {
+                    playerResponse = JSON.parse(match[1]);
+                    break;
+                } catch { continue; }
+            }
+        }
+
+        if (!playerResponse) {
+            // Try window object (may work in some cases)
+            playerResponse = (window as any).ytInitialPlayerResponse;
+        }
+
+        if (!playerResponse) {
+            console.log('[BringYourSub] No player response found');
+            return null;
+        }
+
+        const captions = playerResponse.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+        if (!captions || captions.length === 0) {
+            console.log('[BringYourSub] No captions available');
+            return null;
+        }
+
+        // Prefer English or first track
+        const track = captions.find((t: any) => t.languageCode === 'en') || captions[0];
+        const transcriptResponse = await fetch(track.baseUrl + '&fmt=json3');
+        const transcriptData = await transcriptResponse.json();
+
+        // Extract text
+        const text = transcriptData.events
+            ?.filter((e: any) => e.segs)
+            .map((e: any) => e.segs.map((s: any) => s.utf8).join(''))
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        console.log('[BringYourSub] Transcript extracted, length:', text?.length || 0);
+        return text || null;
+    } catch (error) {
+        console.error('[BringYourSub] Transcript extraction error:', error);
+        return null;
+    }
+}
+
+// =====================
 // Message Handling
 // =====================
 chrome.runtime.onMessage.addListener((
-    message: SubtitleMessage,
+    message: SubtitleMessage & { action: string },
     _sender: chrome.runtime.MessageSender,
-    sendResponse: (response: { success?: boolean; title?: string; channel?: string }) => void
+    sendResponse: (response: any) => void
 ): boolean | void => {
 
     if (message.action === 'GET_METADATA') {
@@ -481,6 +538,15 @@ chrome.runtime.onMessage.addListener((
         const channel = document.querySelector('ytd-channel-name #text')?.textContent?.trim() || 'Unknown';
         sendResponse({ title, channel });
         return true;
+    }
+
+    if (message.action === 'GET_TRANSCRIPT') {
+        extractTranscript().then(transcript => {
+            sendResponse({ transcript });
+        }).catch(() => {
+            sendResponse({ transcript: null });
+        });
+        return true; // Keep channel open for async
     }
 
     if (message.action === 'APPLY_SUBTITLES') {
