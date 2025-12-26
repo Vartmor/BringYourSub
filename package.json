@@ -1,0 +1,43 @@
+{
+    "name": "bringyoursub",
+    "version": "1.0.0",
+    "description": "AI YouTube Subtitle Generator - Generate high-quality translated subtitles using your own OpenAI API key",
+    "private": true,
+    "scripts": {
+        "build": "node build.mjs",
+        "watch": "node build.mjs --watch",
+        "clean": "rm -rf bringyoursub-chrome/dist bringyoursub-firefox/dist",
+        "typecheck": "tsc --noEmit"
+    },
+    "keywords": [
+        "youtube",
+        "subtitles",
+        "translation",
+        "openai",
+        "whisper",
+        "gpt",
+        "browser-extension",
+        "chrome-extension",
+        "firefox-addon",
+        "ai",
+        "accessibility"
+    ],
+    "author": "Muhammed Köseoğlu",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Vartmor/bringyoursub.git"
+    },
+    "bugs": {
+        "url": "https://github.com/Vartmor/bringyoursub/issues"
+    },
+    "homepage": "https://github.com/Vartmor/bringyoursub#readme",
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "devDependencies": {
+        "@types/chrome": "^0.0.260",
+        "esbuild": "^0.19.0",
+        "typescript": "^5.0.0"
+    }
+}

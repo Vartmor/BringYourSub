@@ -1,0 +1,47 @@
+{
+    "manifest_version": 2,
+    "name": "BringYourSub – AI YouTube Subtitle Generator",
+    "version": "1.0.0",
+    "description": "Generate high-quality translated subtitles for YouTube using your own OpenAI API key. Privacy-focused with BYOK (Bring Your Own Key).",
+    "permissions": [
+        "storage",
+        "activeTab",
+        "https://www.youtube.com/*",
+        "https://api.openai.com/*"
+    ],
+    "browser_action": {
+        "default_popup": "extension/popup/popup.html",
+        "default_icon": {
+            "16": "icons/icon16.png",
+            "48": "icons/icon48.png",
+            "128": "icons/icon128.png"
+        }
+    },
+    "background": {
+        "scripts": [
+            "extension/background/ai.js"
+        ],
+        "persistent": false
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "https://www.youtube.com/watch*"
+            ],
+            "js": [
+                "extension/content/youtube.js"
+            ]
+        }
+    ],
+    "icons": {
+        "16": "icons/icon16.png",
+        "48": "icons/icon48.png",
+        "128": "icons/icon128.png"
+    },
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "bringyoursub@example.com",
+            "strict_min_version": "109.0"
+        }
+    }
+}

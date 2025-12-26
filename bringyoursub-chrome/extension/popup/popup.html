@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BringYourSub</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>BringYourSub</h1>
+      <p class="subtitle">AI YouTube Subtitles</p>
+    </header>
+
+    <main>
+      <div class="field">
+        <label for="apiKey">OpenAI API Key</label>
+        <div class="input-group">
+          <input type="password" id="apiKey" placeholder="sk-...">
+          <button id="testKey">Test</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="language">Target Language</label>
+        <select id="language">
+          <option value="Turkish">Turkish (TR)</option>
+          <option value="German">German (DE)</option>
+          <option value="Spanish">Spanish (ES)</option>
+          <option value="French">French (FR)</option>
+          <option value="Italian">Italian (IT)</option>
+        </select>
+      </div>
+
+      <button id="generateBtn" class="primary-btn">Generate Subtitles</button>
+
+      <div id="statusContainer" class="status-container hidden">
+        <div class="spinner"></div>
+        <p id="statusText">Initialized...</p>
+      </div>
+
+      <div id="resultContainer" class="result-container hidden">
+        <textarea id="outputPreview" readonly></textarea>
+        <div class="action-group">
+          <button id="copyBtn">Copy</button>
+          <button id="downloadBtn">Download .SRT</button>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="popup.js" type="module"></script>
+</body>
+</html>
