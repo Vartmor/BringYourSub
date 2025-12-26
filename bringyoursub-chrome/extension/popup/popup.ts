@@ -11,6 +11,9 @@
  * @module popup/popup
  */
 
+// Browser polyfill for Firefox compatibility
+import '../utils/polyfill.js';
+
 // =====================
 // DOM Elements
 // =====================
@@ -219,6 +222,15 @@ generateBtn.addEventListener('click', async () => {
         const settings = await chrome.storage.local.get(['model']);
         const model = settings.model || 'gpt-4o-mini';
 
+        // Set timeout for no response
+        let responseReceived = false;
+        const timeoutId = setTimeout(() => {
+            if (!responseReceived) {
+                showToast('Generation timed out. Check console for errors.', 'error');
+                resetUI();
+            }
+        }, 120000); // 2 minute timeout
+
         chrome.runtime.sendMessage({
             action: 'GENERATE_SUBTITLES',
             videoId,
@@ -227,10 +239,27 @@ generateBtn.addEventListener('click', async () => {
             model,
             videoTitle: tab.title || 'Unknown Video'
         }, async (response) => {
-            if (response?.error) {
+            responseReceived = true;
+            clearTimeout(timeoutId);
+
+            // Check for Chrome runtime errors
+            if (chrome.runtime.lastError) {
+                console.error('[BringYourSub] Runtime error:', chrome.runtime.lastError);
+                showToast('Error: ' + chrome.runtime.lastError.message, 'error');
+                resetUI();
+                return;
+            }
+
+            if (!response) {
+                showToast('No response from background. Try reloading extension.', 'error');
+                resetUI();
+                return;
+            }
+
+            if (response.error) {
                 showToast('Error: ' + response.error, 'error');
                 resetUI();
-            } else if (response?.subtitles) {
+            } else if (response.subtitles) {
                 updateProgress(4, 'Complete!');
                 showResult(response.subtitles);
                 showToast('Subtitles generated successfully!', 'success');
@@ -240,9 +269,13 @@ generateBtn.addEventListener('click', async () => {
                 if (autoSettings.autoApply) {
                     applySubtitlesToVideo(response.subtitles);
                 }
+            } else {
+                showToast('Unexpected response format', 'error');
+                resetUI();
             }
         });
-    } catch {
+    } catch (err) {
+        console.error('[BringYourSub] Generate error:', err);
         showToast('Unexpected error occurred', 'error');
         resetUI();
     }
@@ -355,9 +388,20 @@ languageSelect.addEventListener('change', () => {
     chrome.storage.local.set({ targetLanguage: languageSelect.value });
 });
 
-// Save API key when changed
-apiKeyInput.addEventListener('change', () => {
-    chrome.storage.local.set({ openaiApiKey: apiKeyInput.value });
+// Save API key on every input (not just change/blur)
+apiKeyInput.addEventListener('input', () => {
+    const key = apiKeyInput.value.trim();
+    if (key) {
+        chrome.storage.local.set({ openaiApiKey: key });
+    }
+});
+
+// Also save on blur for safety
+apiKeyInput.addEventListener('blur', () => {
+    const key = apiKeyInput.value.trim();
+    if (key) {
+        chrome.storage.local.set({ openaiApiKey: key });
+    }
 });
 
 // =====================
