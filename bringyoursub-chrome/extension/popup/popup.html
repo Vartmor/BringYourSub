@@ -5,50 +5,199 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BringYourSub</title>
   <link rel="stylesheet" href="popup.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
   <div class="container">
+    <!-- Header -->
     <header>
       <h1>BringYourSub</h1>
       <p class="subtitle">AI YouTube Subtitles</p>
     </header>
 
-    <main>
+    <!-- Tab Navigation -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="generate">Generate</button>
+      <button class="tab" data-tab="settings">Settings</button>
+      <button class="tab" data-tab="about">About</button>
+      <div class="tab-indicator"></div>
+    </nav>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Generate Tab -->
+    <section id="tab-generate" class="tab-content active">
       <div class="field">
         <label for="apiKey">OpenAI API Key</label>
         <div class="input-group">
           <input type="password" id="apiKey" placeholder="sk-...">
-          <button id="testKey">Test</button>
+          <button id="toggleKey" class="icon-btn" title="Show/Hide">👁</button>
+          <button id="testKey" class="test-btn">
+            <span class="test-text">Test</span>
+            <span class="test-icon"></span>
+          </button>
         </div>
       </div>
 
       <div class="field">
         <label for="language">Target Language</label>
         <select id="language">
-          <option value="Turkish">Turkish (TR)</option>
-          <option value="German">German (DE)</option>
-          <option value="Spanish">Spanish (ES)</option>
-          <option value="French">French (FR)</option>
-          <option value="Italian">Italian (IT)</option>
+          <option value="Turkish">🇹🇷 Turkish</option>
+          <option value="German">🇩🇪 German</option>
+          <option value="Spanish">🇪🇸 Spanish</option>
+          <option value="French">🇫🇷 French</option>
+          <option value="Italian">🇮🇹 Italian</option>
         </select>
       </div>
 
-      <button id="generateBtn" class="primary-btn">Generate Subtitles</button>
+      <button id="generateBtn" class="primary-btn">
+        <span class="btn-icon">✨</span>
+        Generate Subtitles
+      </button>
 
-      <div id="statusContainer" class="status-container hidden">
-        <div class="spinner"></div>
-        <p id="statusText">Initialized...</p>
+      <!-- Progress Section -->
+      <div id="progressContainer" class="progress-container hidden">
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-steps">
+          <div class="step" data-step="1">
+            <div class="step-dot"></div>
+            <span>Transcript</span>
+          </div>
+          <div class="step" data-step="2">
+            <div class="step-dot"></div>
+            <span>Processing</span>
+          </div>
+          <div class="step" data-step="3">
+            <div class="step-dot"></div>
+            <span>Translating</span>
+          </div>
+          <div class="step" data-step="4">
+            <div class="step-dot"></div>
+            <span>Done</span>
+          </div>
+        </div>
+        <p id="statusText" class="status-text">Initializing...</p>
       </div>
 
+      <!-- Result Section -->
       <div id="resultContainer" class="result-container hidden">
-        <textarea id="outputPreview" readonly></textarea>
+        <div class="result-header">
+          <span class="result-badge">✓ Generated</span>
+        </div>
+        <textarea id="outputPreview" readonly placeholder="Subtitles will appear here..."></textarea>
         <div class="action-group">
-          <button id="copyBtn">Copy</button>
-          <button id="downloadBtn">Download .SRT</button>
+          <button id="copyBtn" class="action-btn">
+            <span>📋</span> Copy
+          </button>
+          <button id="downloadBtn" class="action-btn">
+            <span>💾</span> Download .SRT
+          </button>
+          <button id="applyBtn" class="action-btn primary">
+            <span>▶</span> Apply to Video
+          </button>
         </div>
       </div>
-    </main>
+    </section>
+
+    <!-- Settings Tab -->
+    <section id="tab-settings" class="tab-content">
+      <div class="settings-group">
+        <h3>Subtitle Display</h3>
+        
+        <div class="setting-item">
+          <label for="fontSize">Font Size</label>
+          <select id="fontSize">
+            <option value="small">Small</option>
+            <option value="medium" selected>Medium</option>
+            <option value="large">Large</option>
+            <option value="xlarge">Extra Large</option>
+          </select>
+        </div>
+
+        <div class="setting-item">
+          <label for="position">Position</label>
+          <select id="position">
+            <option value="bottom" selected>Bottom</option>
+            <option value="top">Top</option>
+          </select>
+        </div>
+
+        <div class="setting-item">
+          <label for="autoApply">Auto-apply to video</label>
+          <label class="toggle">
+            <input type="checkbox" id="autoApply">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <h3>API Configuration</h3>
+        
+        <div class="setting-item">
+          <label for="model">AI Model</label>
+          <select id="model">
+            <option value="gpt-4o-mini" selected>GPT-4o Mini (Fast)</option>
+            <option value="gpt-4o">GPT-4o (Quality)</option>
+          </select>
+        </div>
+      </div>
+
+      <button id="saveSettings" class="primary-btn">
+        <span class="btn-icon">💾</span>
+        Save Settings
+      </button>
+    </section>
+
+    <!-- About Tab -->
+    <section id="tab-about" class="tab-content">
+      <div class="about-content">
+        <div class="about-logo">
+          <div class="logo-icon">🎬</div>
+          <h2>BringYourSub</h2>
+          <span class="version">v1.0.0</span>
+        </div>
+
+        <p class="about-description">
+          AI-powered subtitle generator for YouTube videos using your own OpenAI API key. 
+          Privacy-first with BYOK (Bring Your Own Key) architecture.
+        </p>
+
+        <div class="about-features">
+          <div class="feature-item">
+            <span>🔐</span>
+            <span>Your API key stays local</span>
+          </div>
+          <div class="feature-item">
+            <span>🧠</span>
+            <span>Context-aware translation</span>
+          </div>
+          <div class="feature-item">
+            <span>🎙️</span>
+            <span>Whisper fallback</span>
+          </div>
+        </div>
+
+        <div class="about-links">
+          <a href="https://github.com/Vartmor/BringYourSub" target="_blank" class="link-btn">
+            <span>⭐</span> GitHub
+          </a>
+          <a href="https://platform.openai.com/api-keys" target="_blank" class="link-btn">
+            <span>🔑</span> Get API Key
+          </a>
+        </div>
+
+        <div class="about-credits">
+          <p>Made with ❤️ by <strong>Muhammed Köseoğlu</strong></p>
+          <p class="powered-by">Powered by OpenAI GPT & Whisper</p>
+        </div>
+      </div>
+    </section>
   </div>
+
   <script src="popup.js" type="module"></script>
 </body>
 </html>
