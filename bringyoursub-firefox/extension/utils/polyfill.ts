@@ -1,18 +1,19 @@
 /**
- * Browser API Polyfill
+ * Browser API Polyfill for Firefox MV2
  * 
- * Provides cross-browser compatibility between Chrome (MV3) and Firefox (MV2).
- * Firefox uses the 'browser' namespace while Chrome uses 'chrome'.
+ * Firefox MV2 uses the 'browser' namespace with Promises,
+ * while Chrome MV3 uses 'chrome' with callbacks.
  * This polyfill ensures both work with the 'chrome' namespace.
  */
 
-// @ts-ignore - browser may not exist in Chrome
-const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+// Detect environment
+const isFirefox = typeof browser !== 'undefined' && typeof browser.runtime !== 'undefined';
 
-// Polyfill chrome namespace for Firefox
-if (typeof chrome === 'undefined' || !chrome.storage) {
-    // @ts-ignore
-    globalThis.chrome = browserAPI;
+if (isFirefox) {
+    console.log('[BringYourSub] Firefox detected, applying browser polyfill');
+
+    // @ts-ignore - Override chrome with browser
+    (globalThis as any).chrome = browser;
 }
 
-export { browserAPI };
+export { };

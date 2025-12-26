@@ -11,8 +11,17 @@
  * @module popup/popup
  */
 
-// Browser polyfill for Firefox compatibility
-import '../utils/polyfill.js';
+// =====================
+// Firefox Polyfill (MUST BE FIRST)
+// =====================
+declare const browser: typeof chrome | undefined;
+if (typeof browser !== 'undefined' && typeof chrome === 'undefined') {
+    (globalThis as any).chrome = browser;
+} else if (typeof browser !== 'undefined') {
+    // Firefox with chrome defined but browser is the real API
+    (globalThis as any).chrome = browser;
+}
+console.log('[BringYourSub] Popup loaded, chrome API:', typeof chrome !== 'undefined' ? 'available' : 'missing');
 
 // =====================
 // DOM Elements
