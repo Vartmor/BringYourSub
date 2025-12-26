@@ -11,6 +11,14 @@
  * @module background/ai
  */
 
+// =====================
+// Firefox Polyfill (MUST BE FIRST)
+// =====================
+declare const browser: typeof chrome | undefined;
+if (typeof browser !== 'undefined') {
+    (globalThis as any).chrome = browser;
+}
+
 import { getNativeYouTubeTranscript } from "../../shared/ai-core/transcript.js";
 import { getWhisperTranscript, whisperSegmentsToSRT } from "../../shared/ai-core/whisper.js";
 import { chunkTranscript, estimateTranscript } from "../../shared/ai-core/chunker.js";
@@ -190,12 +198,20 @@ async function handleGenerateSubtitles(
  * Sends progress update to popup
  */
 function notifyPopup(text: string, step: number, totalSteps: number): void {
-    chrome.runtime.sendMessage({
-        action: "UPDATE_PROGRESS",
-        text,
-        step,
-        totalSteps
-    }).catch(() => {
-        // Popup may be closed, ignore
-    });
+    try {
+        const result = chrome.runtime.sendMessage({
+            action: "UPDATE_PROGRESS",
+            text,
+            step,
+            totalSteps
+        });
+        // Handle Promise (Firefox) or undefined (popup closed)
+        if (result && typeof result.catch === 'function') {
+            result.catch(() => {
+                // Popup may be closed, ignore
+            });
+        }
+    } catch {
+        // Ignore errors when popup is closed
+    }
 }
