@@ -5,6 +5,7 @@
     "description": "Generate high-quality translated subtitles for YouTube using your own OpenAI API key. Privacy-focused with BYOK (Bring Your Own Key).",
     "permissions": [
         "storage",
+        "unlimitedStorage",
         "activeTab",
         "https://www.youtube.com/*",
         "https://api.openai.com/*"

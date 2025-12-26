@@ -41,7 +41,7 @@ class SubtitleOverlay {
     private cues: SubtitleCue[] = [];
     private video: HTMLVideoElement | null = null;
     private animationFrame: number | null = null;
-    private isActive = false;
+    public isActive = false;
     private fontSize = 'medium';
     private position = 'bottom';
 
@@ -316,6 +316,13 @@ class SubtitleOverlay {
     }
 
     /**
+     * Check if subtitles have been loaded
+     */
+    hasCues(): boolean {
+        return this.cues.length > 0;
+    }
+
+    /**
      * Remove the overlay
      */
     destroy(): void {
@@ -335,11 +342,122 @@ class SubtitleOverlay {
 // =====================
 const subtitleOverlay = new SubtitleOverlay();
 
+// =====================
+// YouTube Player Button
+// =====================
+function injectPlayerButton(): void {
+    // Check if button already exists
+    if (document.getElementById('bys-player-btn')) return;
+
+    // Find the right controls container
+    const rightControls = document.querySelector('.ytp-right-controls');
+    if (!rightControls) {
+        setTimeout(injectPlayerButton, 1000);
+        return;
+    }
+
+    // Create the button
+    const button = document.createElement('button');
+    button.id = 'bys-player-btn';
+    button.className = 'ytp-button';
+    button.title = 'BringYourSub - Generate Subtitles';
+    button.innerHTML = `
+        <svg height="100%" viewBox="0 0 36 36" width="100%">
+            <path d="M11 11v14h14V11H11zm12 12H13v-2h10v2zm0-4H13v-2h10v2zm0-4H13v-2h10v2z" 
+                  fill="#fff" fill-opacity="0.85"/>
+        </svg>
+    `;
+    button.style.cssText = `
+        position: relative;
+        cursor: pointer;
+        opacity: 0.9;
+        transition: opacity 0.2s;
+    `;
+
+    // Hover effect
+    button.addEventListener('mouseenter', () => {
+        button.style.opacity = '1';
+    });
+    button.addEventListener('mouseleave', () => {
+        button.style.opacity = '0.9';
+    });
+
+    // Click handler - toggle subtitles or show status
+    button.addEventListener('click', (e) => {
+        e.stopPropagation();
+
+        if (subtitleOverlay.isActive) {
+            subtitleOverlay.toggle();
+            showPlayerToast('Subtitles hidden');
+        } else if (subtitleOverlay.hasCues()) {
+            subtitleOverlay.toggle();
+            showPlayerToast('Subtitles shown');
+        } else {
+            showPlayerToast('Open extension popup to generate subtitles');
+        }
+    });
+
+    // Insert before the settings button
+    const settingsBtn = rightControls.querySelector('.ytp-settings-button');
+    if (settingsBtn) {
+        rightControls.insertBefore(button, settingsBtn);
+    } else {
+        rightControls.appendChild(button);
+    }
+
+    console.log('[BringYourSub] Player button injected');
+}
+
+// Show a toast message on the video player
+function showPlayerToast(message: string): void {
+    // Remove existing toast
+    const existing = document.getElementById('bys-player-toast');
+    if (existing) existing.remove();
+
+    const player = document.querySelector('.html5-video-player');
+    if (!player) return;
+
+    const toast = document.createElement('div');
+    toast.id = 'bys-player-toast';
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: absolute;
+        bottom: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 4px;
+        font-size: 14px;
+        z-index: 100;
+        animation: bys-toast-fade 2s forwards;
+    `;
+
+    // Add animation style if not exists
+    if (!document.getElementById('bys-toast-style')) {
+        const style = document.createElement('style');
+        style.id = 'bys-toast-style';
+        style.textContent = `
+            @keyframes bys-toast-fade {
+                0% { opacity: 1; }
+                70% { opacity: 1; }
+                100% { opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    player.appendChild(toast);
+    setTimeout(() => toast.remove(), 2000);
+}
+
 // Initialize when video container is available
 function initOverlay(): void {
     const videoContainer = document.querySelector('.html5-video-container');
     if (videoContainer) {
         subtitleOverlay.init();
+        injectPlayerButton();
     } else {
         // Retry after a short delay (YouTube loads dynamically)
         setTimeout(initOverlay, 1000);

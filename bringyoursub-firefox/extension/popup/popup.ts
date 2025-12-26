@@ -385,14 +385,22 @@ async function loadSavedData(): Promise<void> {
 
 // Save language when changed
 languageSelect.addEventListener('change', () => {
-    chrome.storage.local.set({ targetLanguage: languageSelect.value });
+    chrome.storage.local.set({ targetLanguage: languageSelect.value }, () => {
+        console.log('[BringYourSub] Language saved:', languageSelect.value);
+    });
 });
 
-// Save API key on every input (not just change/blur)
+// Save API key on every input (with confirmation)
 apiKeyInput.addEventListener('input', () => {
     const key = apiKeyInput.value.trim();
     if (key) {
-        chrome.storage.local.set({ openaiApiKey: key });
+        chrome.storage.local.set({ openaiApiKey: key }, () => {
+            if (chrome.runtime.lastError) {
+                console.error('[BringYourSub] Storage error:', chrome.runtime.lastError);
+            } else {
+                console.log('[BringYourSub] API key saved (input event)');
+            }
+        });
     }
 });
 
@@ -400,7 +408,13 @@ apiKeyInput.addEventListener('input', () => {
 apiKeyInput.addEventListener('blur', () => {
     const key = apiKeyInput.value.trim();
     if (key) {
-        chrome.storage.local.set({ openaiApiKey: key });
+        chrome.storage.local.set({ openaiApiKey: key }, () => {
+            if (chrome.runtime.lastError) {
+                console.error('[BringYourSub] Storage error:', chrome.runtime.lastError);
+            } else {
+                console.log('[BringYourSub] API key saved (blur event)');
+            }
+        });
     }
 });
 
@@ -425,5 +439,35 @@ chrome.runtime.onMessage.addListener((message) => {
     }
 });
 
+// =====================
+// YouTube Detection
+// =====================
+async function checkYouTubeVideo(): Promise<void> {
+    try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        const isYouTube = tab?.url?.includes('youtube.com/watch');
+
+        if (isYouTube) {
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = '<span class="btn-icon">✨</span> Generate Subtitles';
+        } else {
+            generateBtn.disabled = true;
+            generateBtn.innerHTML = '<span class="btn-icon">📺</span> Open a YouTube Video';
+        }
+    } catch (err) {
+        console.error('[BringYourSub] Tab query error:', err);
+    }
+}
+
+// =====================
+// Storage Debug
+// =====================
+async function debugStorage(): Promise<void> {
+    const data = await chrome.storage.local.get(null);
+    console.log('[BringYourSub] All stored data:', data);
+}
+
 // Initialize
 loadSavedData();
+checkYouTubeVideo();
+debugStorage();
