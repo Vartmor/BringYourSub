@@ -8,6 +8,8 @@
         "unlimitedStorage",
         "activeTab",
         "https://www.youtube.com/*",
+        "https://*.youtube.com/*",
+        "https://*.googlevideo.com/*",
         "https://api.openai.com/*"
     ],
     "browser_action": {
@@ -44,5 +46,8 @@
             "id": "bringyoursub@example.com",
             "strict_min_version": "109.0"
         }
-    }
+    },
+    "web_accessible_resources": [
+        "extension/content/injected.js"
+    ]
 }

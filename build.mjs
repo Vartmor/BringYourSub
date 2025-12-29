@@ -41,6 +41,7 @@ async function build() {
         const entryPoints = [
             `${srcDir}/extension/background/ai.ts`,
             `${srcDir}/extension/content/youtube.ts`,
+            `${srcDir}/extension/content/injected.js`,
             `${srcDir}/extension/popup/popup.ts`
         ];
 
@@ -54,17 +55,10 @@ async function build() {
             // We want: dist/extension/background/ai.js
             // We can use outbase to preserve structure
             outbase: srcDir,
-            format: 'esm', // or iife for browser
-            // For content scripts and background workers, iife is safer usually, but service worker (chrome) supports modules.
-            // Firefox background script (non-module) needs iife or separate handling.
-            // Let's use 'iife' generally for compatibility unless it's a module worker.
-            // Chrome MV3 background IS a module.
-            // Content scripts are usually loaded as files.
-            // Let's stick to 'esm' for Chrome Service Worker, and bundle manually if needed?
-            // Actually, for broad compatibility, 'iife' is safest for content scripts.
-            // But 'ai.ts' (background) uses `import`.
-            // Let's use a dual strategy or just standard bundle.
-            // Simpler: Just bundle everything to standard JS.
+            format: 'iife', // changed from 'esm' to 'iife' for Firefox/Content Script compatibility
+            // We need to name the global for iife if we were exporting, but we are just running side effects.
+            // However, esbuild might wrap it in (function() { ... })();
+            // This is safer for avoiding global scope pollution and ensures it runs as a script.
             target: ['chrome100', 'firefox100'],
             minify: false,
             sourcemap: true,
