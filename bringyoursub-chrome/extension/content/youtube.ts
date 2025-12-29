@@ -44,6 +44,7 @@ class SubtitleOverlay {
     public isActive = false;
     private fontSize = 'medium';
     private position = 'bottom';
+    private rawSubtitles: string = ''; // Store raw SRT for persistence
 
     private readonly fontSizes: Record<string, string> = {
         small: '14px',
@@ -64,53 +65,143 @@ class SubtitleOverlay {
 
         this.createOverlay();
         this.bindEvents();
+        this.restoreSubtitles(); // Restore saved subtitles for this video
+    }
+
+    /**
+     * Get current video ID from URL
+     */
+    private getVideoId(): string | null {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('v');
+    }
+
+    /**
+     * Save subtitles to storage for current video
+     * Uses window.sessionStorage which works in content scripts
+     */
+    private saveSubtitles(): void {
+        const videoId = this.getVideoId();
+        if (!videoId || !this.rawSubtitles) return;
+
+        try {
+            const key = `bys_subtitles_${videoId}`;
+            const data = JSON.stringify({
+                subtitles: this.rawSubtitles,
+                fontSize: this.fontSize,
+                position: this.position,
+                timestamp: Date.now()
+            });
+            window.sessionStorage.setItem(key, data);
+            console.log('[BringYourSub] Saved subtitles to storage for video:', videoId);
+        } catch (e) {
+            console.error('[BringYourSub] Failed to save subtitles:', e);
+        }
+    }
+
+    /**
+     * Restore subtitles from storage for current video
+     */
+    private restoreSubtitles(): void {
+        const videoId = this.getVideoId();
+        if (!videoId) return;
+
+        try {
+            const key = `bys_subtitles_${videoId}`;
+            const stored = window.sessionStorage.getItem(key);
+
+            if (stored) {
+                const saved = JSON.parse(stored);
+                if (saved && saved.subtitles) {
+                    console.log('[BringYourSub] Restoring saved subtitles for video:', videoId);
+                    this.apply(saved.subtitles, saved.fontSize, saved.position, false); // false = don't re-save
+                }
+            }
+        } catch (e) {
+            console.error('[BringYourSub] Failed to restore subtitles:', e);
+        }
+    }
+
+    /**
+     * Clear saved subtitles for current video
+     */
+    private clearSavedSubtitles(): void {
+        const videoId = this.getVideoId();
+        if (!videoId) return;
+
+        try {
+            const key = `bys_subtitles_${videoId}`;
+            window.sessionStorage.removeItem(key);
+            console.log('[BringYourSub] Cleared saved subtitles for video:', videoId);
+        } catch (e) {
+            console.error('[BringYourSub] Failed to clear saved subtitles:', e);
+        }
     }
 
     /**
      * Create the subtitle overlay container
      */
     private createOverlay(): void {
-        // Remove existing overlay if any
-        this.destroy();
+        // Stop any existing sync loop (it would reference old DOM elements)
+        this.stopSync();
 
-        const videoContainer = document.querySelector('.html5-video-container');
-        if (!videoContainer) return;
+        // Remove existing overlay element only (don't clear cues)
+        const existing = document.getElementById('bys-subtitle-overlay');
+        if (existing) existing.remove();
 
+        // Use #movie_player or .html5-video-player - these don't have overflow:hidden
+        // .html5-video-container has overflow:hidden which clips our overlay
+        let container = document.getElementById('movie_player') ||
+            document.querySelector('.html5-video-player');
+
+        if (!container) {
+            console.error('[BringYourSub] No video player container found for overlay');
+            return;
+        }
+
+        this.createOverlayInContainer(container as HTMLElement);
+    }
+
+    /**
+     * Create overlay in a specific container
+     */
+    private createOverlayInContainer(container: HTMLElement): void {
         this.container = document.createElement('div');
         this.container.id = 'bys-subtitle-overlay';
         this.container.style.cssText = `
-            position: absolute;
-            left: 0;
-            right: 0;
-            z-index: 60;
-            display: flex;
-            justify-content: center;
-            pointer-events: none;
-            transition: opacity 0.2s ease;
+            position: absolute !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 80px !important;
+            z-index: 9999 !important;
+            display: flex !important;
+            justify-content: center !important;
+            pointer-events: none !important;
+            visibility: visible !important;
         `;
-        this.updatePosition();
 
         this.textElement = document.createElement('div');
         this.textElement.id = 'bys-subtitle-text';
         this.textElement.style.cssText = `
-            background: rgba(0, 0, 0, 0.75);
-            color: #ffffff;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-family: 'YouTube Noto', Roboto, Arial, sans-serif;
-            text-align: center;
-            max-width: 80%;
-            line-height: 1.4;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(4px);
-            opacity: 0;
-            transform: translateY(10px);
-            transition: all 0.2s ease;
+            background: rgba(0, 0, 0, 0.85) !important;
+            color: #ffffff !important;
+            padding: 10px 20px !important;
+            border-radius: 6px !important;
+            font-family: 'YouTube Noto', Roboto, Arial, sans-serif !important;
+            text-align: center !important;
+            max-width: 80% !important;
+            line-height: 1.4 !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8) !important;
+            font-size: 18px !important;
+            font-weight: 500 !important;
+            visibility: visible !important;
+            display: inline-block !important;
         `;
         this.updateFontSize();
 
         this.container.appendChild(this.textElement);
-        videoContainer.appendChild(this.container);
+        container.appendChild(this.container);
+        console.log('[BringYourSub] Created subtitle overlay, parent:', container.className);
     }
 
     /**
@@ -203,27 +294,60 @@ class SubtitleOverlay {
 
     /**
      * Apply subtitles from text
+     * @param subtitles - SRT format subtitle text
+     * @param fontSize - Font size setting
+     * @param position - Position setting (top/bottom)
+     * @param shouldSave - Whether to save to storage (default true)
      */
-    apply(subtitles: string, fontSize?: string, position?: string): void {
+    apply(subtitles: string, fontSize?: string, position?: string, shouldSave: boolean = true): void {
+        console.log('[BringYourSub] apply() called with', subtitles.length, 'chars');
+
+        // Ensure video element exists
+        if (!this.video) {
+            this.video = document.querySelector('video');
+            if (!this.video) {
+                console.error('[BringYourSub] No video element found, cannot apply subtitles');
+                return;
+            }
+        }
+
         if (fontSize) {
             this.fontSize = fontSize;
-            this.updateFontSize();
         }
         if (position) {
             this.position = position;
-            this.updatePosition();
         }
 
+        this.rawSubtitles = subtitles; // Store raw text for persistence
         this.cues = this.parseSRT(subtitles);
+        console.log('[BringYourSub] Parsed', this.cues.length, 'cues');
+
         this.isActive = true;
+
+        // Ensure overlay exists (this won't clear cues anymore)
+        if (!this.container || !document.getElementById('bys-subtitle-overlay')) {
+            this.createOverlay();
+        }
+
+        // Update font size and position after overlay is created
+        this.updateFontSize();
+        this.updatePosition();
 
         // Hide YouTube's native captions
         this.hideNativeCaptions();
 
-        // Start syncing
+        // Stop any existing sync (in case overlay was recreated with new DOM elements)
+        this.stopSync();
+
+        // Start syncing with fresh references
         this.startSync();
 
-        console.log(`[BringYourSub] Applied ${this.cues.length} subtitle cues`);
+        // Save to storage for persistence (unless explicitly disabled)
+        if (shouldSave) {
+            this.saveSubtitles();
+        }
+
+        console.log(`[BringYourSub] Applied ${this.cues.length} subtitle cues, sync started`);
     }
 
     /**
@@ -258,8 +382,17 @@ class SubtitleOverlay {
     private startSync(): void {
         if (!this.isActive || this.animationFrame !== null) return;
 
+        // Verify overlay is in DOM
+        const overlayInDom = document.getElementById('bys-subtitle-overlay');
+        const textInDom = document.getElementById('bys-subtitle-text');
+        console.log('[BringYourSub] startSync: overlay in DOM:', !!overlayInDom, 'text in DOM:', !!textInDom);
+        console.log('[BringYourSub] startSync: this.textElement valid:', !!this.textElement, 'this.video valid:', !!this.video);
+        console.log('[BringYourSub] startSync: cues count:', this.cues.length, 'first cue:', this.cues[0]);
+
+        let logCounter = 0;
         const sync = (): void => {
-            this.updateSubtitle();
+            this.updateSubtitle(logCounter < 5); // Log first 5 times
+            logCounter++;
             this.animationFrame = requestAnimationFrame(sync);
         };
         sync();
@@ -278,21 +411,30 @@ class SubtitleOverlay {
     /**
      * Update displayed subtitle based on current time
      */
-    private updateSubtitle(): void {
-        if (!this.video || !this.textElement || !this.isActive) return;
+    private updateSubtitle(shouldLog: boolean = false): void {
+        if (!this.video || !this.textElement || !this.isActive) {
+            if (shouldLog) {
+                console.log('[BringYourSub] updateSubtitle skip: video:', !!this.video, 'textElement:', !!this.textElement, 'isActive:', this.isActive);
+            }
+            return;
+        }
 
         const currentTime = this.video.currentTime;
         const currentCue = this.cues.find(
             cue => currentTime >= cue.start && currentTime <= cue.end
         );
 
+        if (shouldLog) {
+            console.log('[BringYourSub] updateSubtitle: time:', currentTime.toFixed(2), 'cue found:', !!currentCue, 'text:', currentCue?.text?.substring(0, 50));
+        }
+
         if (currentCue) {
             this.textElement.textContent = currentCue.text;
-            this.textElement.style.opacity = '1';
-            this.textElement.style.transform = 'translateY(0)';
+            this.textElement.style.display = 'inline-block';
+            this.textElement.style.visibility = 'visible';
         } else {
-            this.textElement.style.opacity = '0';
-            this.textElement.style.transform = 'translateY(10px)';
+            this.textElement.textContent = '';
+            this.textElement.style.display = 'none';
         }
     }
 
@@ -323,7 +465,7 @@ class SubtitleOverlay {
     }
 
     /**
-     * Remove the overlay
+     * Remove the overlay and clear saved subtitles
      */
     destroy(): void {
         this.stopSync();
@@ -334,6 +476,8 @@ class SubtitleOverlay {
 
         this.showNativeCaptions();
         this.cues = [];
+        this.rawSubtitles = '';
+        this.clearSavedSubtitles(); // Also clear from storage
     }
 }
 
@@ -414,11 +558,18 @@ function injectPlayerButton(): void {
         const button = document.createElement('button');
         button.id = 'bys-player-btn';
         button.className = 'ytp-button';
-        button.title = 'BringYourSub - Generate Subtitles';
+        button.title = 'BringYourSub - Toggle Translated Subtitles';
         button.innerHTML = `
             <svg height="100%" viewBox="0 0 36 36" width="100%">
-                <path d="M11 11v14h14V11H11zm12 12H13v-2h10v2zm0-4H13v-2h10v2zm0-4H13v-2h10v2z" 
-                      fill="#fff" fill-opacity="0.85"/>
+                <!-- Speech bubble -->
+                <path d="M8 10c0-1.1.9-2 2-2h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2h-4l-4 4-4-4h-4c-1.1 0-2-.9-2-2V10z" 
+                      fill="none" stroke="#fff" stroke-width="1.5"/>
+                <!-- A character (English) -->
+                <text x="13" y="19" fill="#fff" font-size="9" font-weight="bold" font-family="Arial">A</text>
+                <!-- Arrow -->
+                <text x="18" y="18" fill="#fff" font-size="6" font-family="Arial">→</text>
+                <!-- 文 character (represents translation) -->
+                <text x="24" y="19" fill="#fff" font-size="8" font-family="Arial">文</text>
             </svg>
         `;
         button.style.cssText = `

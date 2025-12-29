@@ -295,6 +295,50 @@ function showResult(subtitles: string): void {
     resultContainer.classList.remove('hidden');
     outputPreview.value = subtitles;
     generateBtn.disabled = false;
+
+    // Save generated subtitles for this video so they persist when popup reopens
+    saveGeneratedSubtitles(subtitles);
+}
+
+async function saveGeneratedSubtitles(subtitles: string): Promise<void> {
+    try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab?.url?.includes('youtube.com/watch')) return;
+
+        const videoId = new URL(tab.url).searchParams.get('v');
+        if (!videoId) return;
+
+        await chrome.storage.local.set({
+            [`generated_${videoId}`]: {
+                subtitles,
+                timestamp: Date.now()
+            }
+        });
+        console.log('[BringYourSub] Saved generated subtitles for video:', videoId);
+    } catch (e) {
+        console.error('[BringYourSub] Failed to save generated subtitles:', e);
+    }
+}
+
+async function restoreGeneratedSubtitles(): Promise<void> {
+    try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab?.url?.includes('youtube.com/watch')) return;
+
+        const videoId = new URL(tab.url).searchParams.get('v');
+        if (!videoId) return;
+
+        const result = await chrome.storage.local.get(`generated_${videoId}`);
+        const saved = result[`generated_${videoId}`];
+
+        if (saved && saved.subtitles) {
+            console.log('[BringYourSub] Restoring generated subtitles for video:', videoId);
+            outputPreview.value = saved.subtitles;
+            resultContainer.classList.remove('hidden');
+        }
+    } catch (e) {
+        console.error('[BringYourSub] Failed to restore generated subtitles:', e);
+    }
 }
 
 function resetUI(): void {
@@ -390,6 +434,9 @@ async function loadSavedData(): Promise<void> {
     if (data.position) positionSelect.value = data.position;
     if (data.autoApply !== undefined) autoApplyCheckbox.checked = data.autoApply;
     if (data.model) modelSelect.value = data.model;
+
+    // Restore any previously generated subtitles for current video
+    restoreGeneratedSubtitles();
 }
 
 // Save language when changed
