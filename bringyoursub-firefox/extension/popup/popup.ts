@@ -2,7 +2,8 @@
  * BringYourSub - Popup UI Controller
  * 
  * Handles all popup interactions including:
- * - Tab navigation
+ * - Tab navigation with smooth animations
+ * - Theme switching (dark/light)
  * - Toast notifications
  * - API key validation
  * - Settings management
@@ -10,6 +11,13 @@
  * 
  * @module popup/popup
  */
+
+// =====================
+// Imports
+// =====================
+import { Icons, setIcon } from './icons';
+import { initTheme, toggleTheme, getCurrentTheme, watchSystemTheme } from './theme';
+import { LANGUAGES, DEFAULT_LANGUAGE } from './languages';
 
 // =====================
 // Firefox Polyfill (MUST BE FIRST)
@@ -28,13 +36,16 @@ console.log('[BringYourSub] Popup loaded, chrome API:', typeof chrome !== 'undef
 // =====================
 const tabs = document.querySelectorAll<HTMLButtonElement>('.tab');
 const tabContents = document.querySelectorAll<HTMLElement>('.tab-content');
-const tabIndicator = document.querySelector<HTMLElement>('.tab-indicator');
+const tabsContainer = document.querySelector<HTMLElement>('.tabs');
 
 const apiKeyInput = document.getElementById('apiKey') as HTMLInputElement;
 const toggleKeyBtn = document.getElementById('toggleKey') as HTMLButtonElement;
 const testKeyBtn = document.getElementById('testKey') as HTMLButtonElement;
 const languageSelect = document.getElementById('language') as HTMLSelectElement;
+const modelSelect = document.getElementById('model') as HTMLSelectElement;
 const generateBtn = document.getElementById('generateBtn') as HTMLButtonElement;
+const themeToggleBtn = document.getElementById('themeToggle') as HTMLButtonElement;
+const dualSubtitlesToggle = document.getElementById('dualSubtitles') as HTMLInputElement;
 
 const progressContainer = document.getElementById('progressContainer') as HTMLDivElement;
 const progressFill = document.getElementById('progressFill') as HTMLDivElement;
@@ -53,8 +64,13 @@ const toastContainer = document.getElementById('toastContainer') as HTMLDivEleme
 const fontSizeSelect = document.getElementById('fontSize') as HTMLSelectElement;
 const positionSelect = document.getElementById('position') as HTMLSelectElement;
 const autoApplyCheckbox = document.getElementById('autoApply') as HTMLInputElement;
-const modelSelect = document.getElementById('model') as HTMLSelectElement;
+const hideOnPauseCheckbox = document.getElementById('hideOnPause') as HTMLInputElement;
+const enableDragCheckbox = document.getElementById('enableDrag') as HTMLInputElement;
+const bgOpacitySlider = document.getElementById('bgOpacity') as HTMLInputElement;
+const bgOpacityValue = document.getElementById('bgOpacityValue') as HTMLSpanElement;
+const syncOffsetInput = document.getElementById('syncOffset') as HTMLInputElement;
 const saveSettingsBtn = document.getElementById('saveSettings') as HTMLButtonElement;
+const refreshModelsBtn = document.getElementById('refreshModels') as HTMLButtonElement;
 
 // =====================
 // Settings Interface
@@ -65,7 +81,72 @@ interface Settings {
     fontSize: string;
     position: string;
     autoApply: boolean;
+    hideOnPause: boolean;
+    enableDrag: boolean;
+    bgOpacity: number;
+    syncOffset: number;
     model: string;
+    dualSubtitles: boolean;
+}
+
+// =====================
+// Initialize Icons
+// =====================
+function initIcons(): void {
+    // Header
+    setIcon(document.getElementById('logo')!, 'film');
+    setIcon(document.getElementById('iconSun')!, 'sun');
+    setIcon(document.getElementById('iconMoon')!, 'moon');
+
+    // Tab icons
+    setIcon(document.getElementById('tabIconGenerate')!, 'sparkles');
+    setIcon(document.getElementById('tabIconSettings')!, 'settings');
+    setIcon(document.getElementById('tabIconAbout')!, 'info');
+
+    // Generate tab
+    setIcon(document.getElementById('labelIconKey')!, 'key');
+    setIcon(document.getElementById('labelIconModel')!, 'cpu');
+    setIcon(document.getElementById('labelIconLanguage')!, 'globe');
+    setIcon(document.getElementById('labelIconDual')!, 'languages');
+    setIcon(document.getElementById('toggleKeyIcon')!, 'eye');
+    setIcon(document.getElementById('refreshModelsIcon')!, 'refresh');
+    setIcon(document.getElementById('generateBtnIcon')!, 'sparkles');
+
+    // Result section
+    setIcon(document.getElementById('resultBadgeIcon')!, 'check');
+    setIcon(document.getElementById('copyBtnIcon')!, 'copy');
+    setIcon(document.getElementById('downloadBtnIcon')!, 'download');
+    setIcon(document.getElementById('applyBtnIcon')!, 'play');
+
+    // Settings tab
+    setIcon(document.getElementById('settingsIconDisplay')!, 'subtitles');
+    setIcon(document.getElementById('settingsIconBehavior')!, 'sliders');
+    setIcon(document.getElementById('saveSettingsIcon')!, 'save');
+
+    // About tab
+    setIcon(document.getElementById('aboutLogoIcon')!, 'film');
+    setIcon(document.getElementById('featureIconKey')!, 'key');
+    setIcon(document.getElementById('featureIconCloud')!, 'cloud');
+    setIcon(document.getElementById('featureIconShield')!, 'shield');
+    setIcon(document.getElementById('featureIconBrain')!, 'brain');
+    setIcon(document.getElementById('featureIconMic')!, 'mic');
+    setIcon(document.getElementById('linkIconGithub')!, 'github');
+    setIcon(document.getElementById('linkIconPrivacy')!, 'shield');
+    setIcon(document.getElementById('linkIconApi')!, 'key');
+    setIcon(document.getElementById('creditHeart')!, 'heart');
+}
+
+// =====================
+// Populate Languages
+// =====================
+function populateLanguages(): void {
+    languageSelect.innerHTML = '';
+    LANGUAGES.forEach(lang => {
+        const option = document.createElement('option');
+        option.value = lang.name;
+        option.textContent = `${lang.flag} ${lang.name}`;
+        languageSelect.appendChild(option);
+    });
 }
 
 // =====================
@@ -74,14 +155,7 @@ interface Settings {
 function showToast(message: string, type: 'success' | 'error' | 'info' = 'info'): void {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-
-    const icons = {
-        success: '✓',
-        error: '✗',
-        info: 'ℹ'
-    };
-
-    toast.innerHTML = `<span>${icons[type]}</span> ${message}`;
+    toast.textContent = message;
     toastContainer.appendChild(toast);
 
     setTimeout(() => {
@@ -98,15 +172,15 @@ function switchTab(tabName: string): void {
         tab.classList.toggle('active', tab.dataset.tab === tabName);
     });
 
-    // Update tab indicator position
-    if (tabIndicator) {
-        const tabIndex = Array.from(tabs).findIndex(t => t.dataset.tab === tabName);
-        tabIndicator.style.transform = `translateX(calc(${tabIndex * 100}% + ${tabIndex * 4}px))`;
+    // Update tabs container data attribute for indicator animation
+    if (tabsContainer) {
+        tabsContainer.dataset.active = tabName;
     }
 
-    // Show corresponding content
+    // Show corresponding content with animation
     tabContents.forEach(content => {
-        content.classList.toggle('active', content.id === `tab-${tabName}`);
+        const isActive = content.id === `tab-${tabName}`;
+        content.classList.toggle('active', isActive);
     });
 }
 
@@ -118,15 +192,35 @@ tabs.forEach(tab => {
 });
 
 // =====================
+// Theme Management
+// =====================
+async function setupTheme(): Promise<void> {
+    await initTheme();
+
+    themeToggleBtn?.addEventListener('click', async () => {
+        await toggleTheme();
+    });
+
+    watchSystemTheme(() => {
+        // Theme changed via system preference
+    });
+}
+
+// =====================
 // API Key Management
 // =====================
-toggleKeyBtn.addEventListener('click', () => {
-    const isPassword = apiKeyInput.type === 'password';
-    apiKeyInput.type = isPassword ? 'text' : 'password';
-    toggleKeyBtn.textContent = isPassword ? '🙈' : '👁';
+let keyVisible = false;
+
+toggleKeyBtn?.addEventListener('click', () => {
+    keyVisible = !keyVisible;
+    apiKeyInput.type = keyVisible ? 'text' : 'password';
+    const icon = document.getElementById('toggleKeyIcon');
+    if (icon) {
+        setIcon(icon, keyVisible ? 'eyeOff' : 'eye');
+    }
 });
 
-testKeyBtn.addEventListener('click', async () => {
+testKeyBtn?.addEventListener('click', async () => {
     const key = apiKeyInput.value.trim();
     if (!key) {
         showToast('Please enter an API key', 'error');
@@ -167,6 +261,57 @@ testKeyBtn.addEventListener('click', async () => {
 });
 
 // =====================
+// Model Refresh
+// =====================
+refreshModelsBtn?.addEventListener('click', async () => {
+    const icon = document.getElementById('refreshModelsIcon');
+    if (icon) {
+        icon.classList.add('animate-spin');
+    }
+
+    // Simulate model fetch (will be replaced with actual API call in Phase 2)
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    if (icon) {
+        icon.classList.remove('animate-spin');
+    }
+    showToast('Models refreshed', 'info');
+});
+
+// =====================
+// Range Slider
+// =====================
+bgOpacitySlider?.addEventListener('input', () => {
+    if (bgOpacityValue) {
+        bgOpacityValue.textContent = `${bgOpacitySlider.value}%`;
+    }
+});
+
+// =====================
+// Number Input Controls
+// =====================
+document.querySelectorAll('.number-input button').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const target = btn.getAttribute('data-target');
+        const input = document.getElementById(target!) as HTMLInputElement;
+        if (!input) return;
+
+        const step = parseInt(input.step) || 100;
+        const min = parseInt(input.min);
+        const max = parseInt(input.max);
+        let value = parseInt(input.value) || 0;
+
+        if (btn.classList.contains('increment')) {
+            value = Math.min(max, value + step);
+        } else {
+            value = Math.max(min, value - step);
+        }
+
+        input.value = value.toString();
+    });
+});
+
+// =====================
 // Progress Management
 // =====================
 function updateProgress(stepNumber: number, status: string): void {
@@ -176,9 +321,9 @@ function updateProgress(stepNumber: number, status: string): void {
 
     // Update steps
     steps.forEach((step, index) => {
-        step.classList.remove('active', 'completed');
+        step.classList.remove('active', 'complete');
         if (index + 1 < stepNumber) {
-            step.classList.add('completed');
+            step.classList.add('complete');
         } else if (index + 1 === stepNumber) {
             step.classList.add('active');
         }
@@ -190,14 +335,14 @@ function updateProgress(stepNumber: number, status: string): void {
 
 function resetProgress(): void {
     progressFill.style.width = '0%';
-    steps.forEach(step => step.classList.remove('active', 'completed'));
+    steps.forEach(step => step.classList.remove('active', 'complete'));
     statusText.textContent = 'Initializing...';
 }
 
 // =====================
 // Subtitle Generation
 // =====================
-generateBtn.addEventListener('click', async () => {
+generateBtn?.addEventListener('click', async () => {
     const apiKey = apiKeyInput.value.trim();
     const language = languageSelect.value;
 
@@ -296,7 +441,7 @@ function showResult(subtitles: string): void {
     outputPreview.value = subtitles;
     generateBtn.disabled = false;
 
-    // Save generated subtitles for this video so they persist when popup reopens
+    // Save generated subtitles for this video
     saveGeneratedSubtitles(subtitles);
 }
 
@@ -350,20 +495,23 @@ function resetUI(): void {
 // =====================
 // Result Actions
 // =====================
-copyBtn.addEventListener('click', async () => {
+copyBtn?.addEventListener('click', async () => {
     try {
         await navigator.clipboard.writeText(outputPreview.value);
-        copyBtn.innerHTML = '<span>✓</span> Copied!';
+        const icon = document.getElementById('copyBtnIcon');
+        if (icon) setIcon(icon, 'check');
+        copyBtn.querySelector('span:last-child')!.textContent = 'Copied!';
         showToast('Copied to clipboard', 'success');
         setTimeout(() => {
-            copyBtn.innerHTML = '<span>📋</span> Copy';
+            if (icon) setIcon(icon, 'copy');
+            copyBtn.querySelector('span:last-child')!.textContent = 'Copy';
         }, 2000);
     } catch {
         showToast('Failed to copy', 'error');
     }
 });
 
-downloadBtn.addEventListener('click', () => {
+downloadBtn?.addEventListener('click', () => {
     const text = outputPreview.value;
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -375,7 +523,7 @@ downloadBtn.addEventListener('click', () => {
     showToast('Download started', 'info');
 });
 
-applyBtn.addEventListener('click', () => {
+applyBtn?.addEventListener('click', () => {
     applySubtitlesToVideo(outputPreview.value);
 });
 
@@ -384,13 +532,15 @@ async function applySubtitlesToVideo(subtitles: string): Promise<void> {
     if (!tab?.id) return;
 
     // Get settings
-    const settings = await chrome.storage.local.get(['fontSize', 'position']);
+    const settings = await chrome.storage.local.get(['fontSize', 'position', 'bgOpacity', 'enableDrag']);
 
     chrome.tabs.sendMessage(tab.id, {
         action: 'APPLY_SUBTITLES',
         subtitles,
         fontSize: settings.fontSize || 'medium',
-        position: settings.position || 'bottom'
+        position: settings.position || 'bottom',
+        bgOpacity: settings.bgOpacity || 75,
+        enableDrag: settings.enableDrag || false
     }, (response) => {
         if (response?.success) {
             showToast('Subtitles applied to video!', 'success');
@@ -403,12 +553,17 @@ async function applySubtitlesToVideo(subtitles: string): Promise<void> {
 // =====================
 // Settings Management
 // =====================
-saveSettingsBtn.addEventListener('click', async () => {
+saveSettingsBtn?.addEventListener('click', async () => {
     const settings: Partial<Settings> = {
-        fontSize: fontSizeSelect.value,
-        position: positionSelect.value,
-        autoApply: autoApplyCheckbox.checked,
-        model: modelSelect.value
+        fontSize: fontSizeSelect?.value,
+        position: positionSelect?.value,
+        autoApply: autoApplyCheckbox?.checked,
+        hideOnPause: hideOnPauseCheckbox?.checked,
+        enableDrag: enableDragCheckbox?.checked,
+        bgOpacity: parseInt(bgOpacitySlider?.value || '75'),
+        syncOffset: parseInt(syncOffsetInput?.value || '0'),
+        model: modelSelect?.value,
+        dualSubtitles: dualSubtitlesToggle?.checked
     };
 
     await chrome.storage.local.set(settings);
@@ -425,52 +580,45 @@ async function loadSavedData(): Promise<void> {
         'fontSize',
         'position',
         'autoApply',
-        'model'
+        'hideOnPause',
+        'enableDrag',
+        'bgOpacity',
+        'syncOffset',
+        'model',
+        'dualSubtitles'
     ]);
 
     if (data.openaiApiKey) apiKeyInput.value = data.openaiApiKey;
     if (data.targetLanguage) languageSelect.value = data.targetLanguage;
-    if (data.fontSize) fontSizeSelect.value = data.fontSize;
-    if (data.position) positionSelect.value = data.position;
-    if (data.autoApply !== undefined) autoApplyCheckbox.checked = data.autoApply;
-    if (data.model) modelSelect.value = data.model;
+    if (data.fontSize && fontSizeSelect) fontSizeSelect.value = data.fontSize;
+    if (data.position && positionSelect) positionSelect.value = data.position;
+    if (data.autoApply !== undefined && autoApplyCheckbox) autoApplyCheckbox.checked = data.autoApply;
+    if (data.hideOnPause !== undefined && hideOnPauseCheckbox) hideOnPauseCheckbox.checked = data.hideOnPause;
+    if (data.enableDrag !== undefined && enableDragCheckbox) enableDragCheckbox.checked = data.enableDrag;
+    if (data.bgOpacity !== undefined && bgOpacitySlider) {
+        bgOpacitySlider.value = data.bgOpacity.toString();
+        if (bgOpacityValue) bgOpacityValue.textContent = `${data.bgOpacity}%`;
+    }
+    if (data.syncOffset !== undefined && syncOffsetInput) syncOffsetInput.value = data.syncOffset.toString();
+    if (data.model && modelSelect) modelSelect.value = data.model;
+    if (data.dualSubtitles !== undefined && dualSubtitlesToggle) dualSubtitlesToggle.checked = data.dualSubtitles;
 
     // Restore any previously generated subtitles for current video
     restoreGeneratedSubtitles();
 }
 
 // Save language when changed
-languageSelect.addEventListener('change', () => {
+languageSelect?.addEventListener('change', () => {
     chrome.storage.local.set({ targetLanguage: languageSelect.value }, () => {
         console.log('[BringYourSub] Language saved:', languageSelect.value);
     });
 });
 
-// Save API key on every input (with confirmation)
-apiKeyInput.addEventListener('input', () => {
+// Save API key on every input
+apiKeyInput?.addEventListener('input', () => {
     const key = apiKeyInput.value.trim();
     if (key) {
-        chrome.storage.local.set({ openaiApiKey: key }, () => {
-            if (chrome.runtime.lastError) {
-                console.error('[BringYourSub] Storage error:', chrome.runtime.lastError);
-            } else {
-                console.log('[BringYourSub] API key saved (input event)');
-            }
-        });
-    }
-});
-
-// Also save on blur for safety
-apiKeyInput.addEventListener('blur', () => {
-    const key = apiKeyInput.value.trim();
-    if (key) {
-        chrome.storage.local.set({ openaiApiKey: key }, () => {
-            if (chrome.runtime.lastError) {
-                console.error('[BringYourSub] Storage error:', chrome.runtime.lastError);
-            } else {
-                console.log('[BringYourSub] API key saved (blur event)');
-            }
-        });
+        chrome.storage.local.set({ openaiApiKey: key });
     }
 });
 
@@ -503,12 +651,17 @@ async function checkYouTubeVideo(): Promise<void> {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         const isYouTube = tab?.url?.includes('youtube.com/watch');
 
+        const generateBtnIcon = document.getElementById('generateBtnIcon');
+        const generateBtnText = generateBtn?.querySelector('.btn-text');
+
         if (isYouTube) {
-            generateBtn.disabled = false;
-            generateBtn.innerHTML = '<span class="btn-icon">✨</span> Generate Subtitles';
+            if (generateBtn) generateBtn.disabled = false;
+            if (generateBtnIcon) setIcon(generateBtnIcon, 'sparkles');
+            if (generateBtnText) generateBtnText.textContent = 'Generate Subtitles';
         } else {
-            generateBtn.disabled = true;
-            generateBtn.innerHTML = '<span class="btn-icon">📺</span> Open a YouTube Video';
+            if (generateBtn) generateBtn.disabled = true;
+            if (generateBtnIcon) setIcon(generateBtnIcon, 'film');
+            if (generateBtnText) generateBtnText.textContent = 'Open a YouTube Video';
         }
     } catch (err) {
         console.error('[BringYourSub] Tab query error:', err);
@@ -516,14 +669,16 @@ async function checkYouTubeVideo(): Promise<void> {
 }
 
 // =====================
-// Storage Debug
+// Initialize
 // =====================
-async function debugStorage(): Promise<void> {
-    const data = await chrome.storage.local.get(null);
-    console.log('[BringYourSub] All stored data:', data);
+async function init(): Promise<void> {
+    initIcons();
+    populateLanguages();
+    await setupTheme();
+    await loadSavedData();
+    await checkYouTubeVideo();
+
+    console.log('[BringYourSub] Popup initialized');
 }
 
-// Initialize
-loadSavedData();
-checkYouTubeVideo();
-debugStorage();
+init();

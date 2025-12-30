@@ -13,15 +13,33 @@
   <div class="container">
     <!-- Header -->
     <header>
-      <h1>BringYourSub</h1>
-      <p class="subtitle">AI YouTube Subtitles</p>
+      <div class="header-left">
+        <div class="logo" id="logo"></div>
+        <div class="header-text">
+          <h1>BringYourSub</h1>
+          <p class="subtitle">AI YouTube Subtitles</p>
+        </div>
+      </div>
+      <button id="themeToggle" class="theme-toggle" title="Toggle theme">
+        <span class="icon-sun" id="iconSun"></span>
+        <span class="icon-moon" id="iconMoon"></span>
+      </button>
     </header>
 
     <!-- Tab Navigation -->
     <nav class="tabs">
-      <button class="tab active" data-tab="generate">Generate</button>
-      <button class="tab" data-tab="settings">Settings</button>
-      <button class="tab" data-tab="about">About</button>
+      <button class="tab active" data-tab="generate">
+        <span class="tab-icon" id="tabIconGenerate"></span>
+        <span>Generate</span>
+      </button>
+      <button class="tab" data-tab="settings">
+        <span class="tab-icon" id="tabIconSettings"></span>
+        <span>Settings</span>
+      </button>
+      <button class="tab" data-tab="about">
+        <span class="tab-icon" id="tabIconAbout"></span>
+        <span>About</span>
+      </button>
       <div class="tab-indicator"></div>
     </nav>
 
@@ -30,33 +48,74 @@
 
     <!-- Generate Tab -->
     <section id="tab-generate" class="tab-content active">
+      <!-- API Key Field -->
       <div class="field">
-        <label for="apiKey">OpenAI API Key</label>
+        <label for="apiKey">
+          <span class="label-icon" id="labelIconKey"></span>
+          API Key
+        </label>
         <div class="input-group">
           <input type="password" id="apiKey" placeholder="sk-...">
-          <button id="toggleKey" class="icon-btn" title="Show/Hide">👁</button>
+          <button id="toggleKey" class="icon-btn" title="Show/Hide">
+            <span id="toggleKeyIcon"></span>
+          </button>
           <button id="testKey" class="test-btn">
             <span class="test-text">Test</span>
-            <span class="test-icon"></span>
+            <span class="test-icon" id="testKeyIcon"></span>
           </button>
         </div>
       </div>
 
+      <!-- Model Selection -->
       <div class="field">
-        <label for="language">Target Language</label>
+        <label for="model">
+          <span class="label-icon" id="labelIconModel"></span>
+          AI Model
+        </label>
+        <div class="select-group">
+          <select id="model">
+            <option value="gpt-4o-mini">GPT-4o Mini (Fast)</option>
+            <option value="gpt-4o">GPT-4o (Quality)</option>
+            <option value="gpt-4-turbo">GPT-4 Turbo</option>
+            <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Budget)</option>
+          </select>
+          <button id="refreshModels" class="icon-btn small" title="Refresh models">
+            <span id="refreshModelsIcon"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Language Selection -->
+      <div class="field">
+        <label for="language">
+          <span class="label-icon" id="labelIconLanguage"></span>
+          Target Language
+        </label>
         <select id="language">
-          <option value="Turkish">🇹🇷 Turkish</option>
-          <option value="German">🇩🇪 German</option>
-          <option value="Spanish">🇪🇸 Spanish</option>
-          <option value="French">🇫🇷 French</option>
-          <option value="Italian">🇮🇹 Italian</option>
+          <!-- Populated by JavaScript -->
         </select>
       </div>
 
-      <button id="generateBtn" class="primary-btn">
-        <span class="btn-icon">✨</span>
-        Generate Subtitles
-      </button>
+      <!-- Dual Subtitle Toggle -->
+      <div class="field dual-toggle">
+        <label>
+          <span class="label-icon" id="labelIconDual"></span>
+          Dual Subtitles
+          <span class="badge">NEW</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="dualSubtitles">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <!-- Generate Button - Centered -->
+      <div class="generate-section">
+        <button id="generateBtn" class="primary-btn generate-btn">
+          <span class="btn-icon" id="generateBtnIcon"></span>
+          <span class="btn-text">Generate Subtitles</span>
+        </button>
+      </div>
 
       <!-- Progress Section -->
       <div id="progressContainer" class="progress-container hidden">
@@ -87,18 +146,24 @@
       <!-- Result Section -->
       <div id="resultContainer" class="result-container hidden">
         <div class="result-header">
-          <span class="result-badge">✓ Generated</span>
+          <span class="result-badge">
+            <span id="resultBadgeIcon"></span>
+            Generated
+          </span>
         </div>
         <textarea id="outputPreview" readonly placeholder="Subtitles will appear here..."></textarea>
         <div class="action-group">
           <button id="copyBtn" class="action-btn">
-            <span>📋</span> Copy
+            <span id="copyBtnIcon"></span>
+            <span>Copy</span>
           </button>
           <button id="downloadBtn" class="action-btn">
-            <span>💾</span> Download .SRT
+            <span id="downloadBtnIcon"></span>
+            <span>Download</span>
           </button>
           <button id="applyBtn" class="action-btn primary">
-            <span>▶</span> Apply to Video
+            <span id="applyBtnIcon"></span>
+            <span>Apply</span>
           </button>
         </div>
       </div>
@@ -106,8 +171,12 @@
 
     <!-- Settings Tab -->
     <section id="tab-settings" class="tab-content">
+      <!-- Subtitle Display Settings -->
       <div class="settings-group">
-        <h3>Subtitle Display</h3>
+        <h3>
+          <span class="section-icon" id="settingsIconDisplay"></span>
+          Subtitle Display
+        </h3>
 
         <div class="setting-item">
           <label for="fontSize">Font Size</label>
@@ -128,28 +197,58 @@
         </div>
 
         <div class="setting-item">
+          <label for="bgOpacity">Background Opacity</label>
+          <div class="range-container">
+            <input type="range" id="bgOpacity" min="0" max="100" value="75">
+            <span class="range-value" id="bgOpacityValue">75%</span>
+          </div>
+        </div>
+
+        <div class="setting-item">
+          <label for="enableDrag">Enable Drag</label>
+          <label class="toggle">
+            <input type="checkbox" id="enableDrag">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Behavior Settings -->
+      <div class="settings-group">
+        <h3>
+          <span class="section-icon" id="settingsIconBehavior"></span>
+          Behavior
+        </h3>
+
+        <div class="setting-item">
           <label for="autoApply">Auto-apply to video</label>
           <label class="toggle">
             <input type="checkbox" id="autoApply">
             <span class="toggle-slider"></span>
           </label>
         </div>
-      </div>
-
-      <div class="settings-group">
-        <h3>API Configuration</h3>
 
         <div class="setting-item">
-          <label for="model">AI Model</label>
-          <select id="model">
-            <option value="gpt-4o-mini" selected>GPT-4o Mini (Fast)</option>
-            <option value="gpt-4o">GPT-4o (Quality)</option>
-          </select>
+          <label for="hideOnPause">Hide when paused</label>
+          <label class="toggle">
+            <input type="checkbox" id="hideOnPause">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="setting-item">
+          <label for="syncOffset">Sync Offset (ms)</label>
+          <div class="number-input">
+            <button class="decrement" data-target="syncOffset">-</button>
+            <input type="number" id="syncOffset" value="0" min="-5000" max="5000" step="100">
+            <button class="increment" data-target="syncOffset">+</button>
+          </div>
         </div>
       </div>
 
+      <!-- Save Button -->
       <button id="saveSettings" class="primary-btn">
-        <span class="btn-icon">💾</span>
+        <span class="btn-icon" id="saveSettingsIcon"></span>
         Save Settings
       </button>
     </section>
@@ -158,53 +257,56 @@
     <section id="tab-about" class="tab-content">
       <div class="about-content">
         <div class="about-logo">
-          <div class="logo-icon">🎬</div>
+          <div class="logo-icon" id="aboutLogoIcon"></div>
           <h2>BringYourSub</h2>
           <span class="version">v1.0.0</span>
         </div>
 
         <p class="about-description">
-          AI-powered subtitle generator for YouTube videos using your own OpenAI API key.
+          AI-powered subtitle generator for YouTube videos using your own API key.
           Privacy-first with BYOK (Bring Your Own Key) architecture.
         </p>
 
         <div class="about-features">
           <div class="feature-item trust">
-            <span>🔐</span>
+            <span id="featureIconKey"></span>
             <span>API key never leaves your device</span>
           </div>
           <div class="feature-item trust">
-            <span>☁️</span>
+            <span id="featureIconCloud"></span>
             <span>No server - direct to OpenAI</span>
           </div>
           <div class="feature-item trust">
-            <span>📊</span>
+            <span id="featureIconShield"></span>
             <span>Zero data collection</span>
           </div>
           <div class="feature-item">
-            <span>🧠</span>
+            <span id="featureIconBrain"></span>
             <span>Smart chunk processing</span>
           </div>
           <div class="feature-item">
-            <span>🎙️</span>
+            <span id="featureIconMic"></span>
             <span>Whisper fallback</span>
           </div>
         </div>
 
         <div class="about-links">
           <a href="https://github.com/Vartmor/BringYourSub" target="_blank" class="link-btn">
-            <span>⭐</span> GitHub
+            <span id="linkIconGithub"></span>
+            GitHub
           </a>
           <a href="https://github.com/Vartmor/BringYourSub/blob/main/PRIVACY.md" target="_blank" class="link-btn">
-            <span>🛡️</span> Privacy
+            <span id="linkIconPrivacy"></span>
+            Privacy
           </a>
           <a href="https://platform.openai.com/api-keys" target="_blank" class="link-btn">
-            <span>🔑</span> API Key
+            <span id="linkIconApi"></span>
+            API Key
           </a>
         </div>
 
         <div class="about-credits">
-          <p>Made with ❤️ by <strong>Muhammed Köseoğlu</strong></p>
+          <p>Made with <span id="creditHeart"></span> by <strong>Muhammed Koseoglu</strong></p>
           <p class="powered-by">Powered by OpenAI GPT & Whisper</p>
         </div>
       </div>
