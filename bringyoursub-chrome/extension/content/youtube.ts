@@ -30,6 +30,12 @@ interface SubtitleMessage {
     subtitles?: string;
     fontSize?: string;
     position?: string;
+    bgOpacity?: number;
+    enableDrag?: boolean;
+    syncOffset?: number;
+    animation?: string;
+    textColor?: string;
+    fontFamily?: string;
 }
 
 // =====================
@@ -44,7 +50,22 @@ class SubtitleOverlay {
     public isActive = false;
     private fontSize = 'medium';
     private position = 'bottom';
-    private rawSubtitles: string = ''; // Store raw SRT for persistence
+    private rawSubtitles: string = '';
+
+    // Extended settings
+    private bgOpacity = 75;
+    private enableDrag = false;
+    private syncOffset = 0; // milliseconds
+    private textColor = '#ffffff';
+    private fontFamily = 'YouTube Noto, Roboto, Arial, sans-serif';
+
+    // Drag state
+    private isDragging = false;
+    private dragStartX = 0;
+    private dragStartY = 0;
+    private customX = 50; // percentage from left
+    private customY = 90; // percentage from top
+    private useCustomPosition = false;
 
     private readonly fontSizes: Record<string, string> = {
         small: '14px',
@@ -210,13 +231,44 @@ class SubtitleOverlay {
     private updatePosition(): void {
         if (!this.container) return;
 
-        if (this.position === 'top') {
+        if (this.useCustomPosition && this.enableDrag) {
+            // Custom position from dragging
+            this.container.style.left = `${this.customX}%`;
+            this.container.style.top = `${this.customY}%`;
+            this.container.style.bottom = 'auto';
+            this.container.style.right = 'auto';
+            this.container.style.transform = 'translate(-50%, -50%)';
+            this.container.style.justifyContent = 'center';
+        } else if (this.position === 'top') {
+            this.container.style.left = '0';
+            this.container.style.right = '0';
             this.container.style.top = '40px';
             this.container.style.bottom = 'auto';
+            this.container.style.transform = 'none';
         } else {
+            this.container.style.left = '0';
+            this.container.style.right = '0';
             this.container.style.bottom = '80px';
             this.container.style.top = 'auto';
+            this.container.style.transform = 'none';
         }
+    }
+
+    /**
+     * Update background opacity
+     */
+    private updateBackgroundOpacity(): void {
+        if (!this.textElement) return;
+        const alpha = this.bgOpacity / 100;
+        this.textElement.style.backgroundColor = `rgba(0, 0, 0, ${alpha})`;
+    }
+
+    /**
+     * Update text color
+     */
+    private updateTextColor(): void {
+        if (!this.textElement) return;
+        this.textElement.style.color = this.textColor;
     }
 
     /**
@@ -243,6 +295,142 @@ class SubtitleOverlay {
 
         // Handle seeking
         this.video.addEventListener('seeked', () => this.updateSubtitle());
+    }
+
+    /**
+     * Enable drag functionality on the subtitle container
+     */
+    private enableDragMode(): void {
+        if (!this.container || !this.textElement) return;
+
+        this.container.style.pointerEvents = 'auto';
+        this.container.style.cursor = 'grab';
+
+        // Mouse events
+        this.container.addEventListener('mousedown', this.onDragStart.bind(this));
+        document.addEventListener('mousemove', this.onDragMove.bind(this));
+        document.addEventListener('mouseup', this.onDragEnd.bind(this));
+
+        // Touch events for mobile
+        this.container.addEventListener('touchstart', this.onDragStart.bind(this), { passive: false });
+        document.addEventListener('touchmove', this.onDragMove.bind(this), { passive: false });
+        document.addEventListener('touchend', this.onDragEnd.bind(this));
+
+        console.log('[BringYourSub] Drag mode enabled');
+    }
+
+    /**
+     * Disable drag functionality
+     */
+    private disableDragMode(): void {
+        if (!this.container) return;
+
+        this.container.style.pointerEvents = 'none';
+        this.container.style.cursor = 'default';
+        this.useCustomPosition = false;
+        this.updatePosition();
+
+        console.log('[BringYourSub] Drag mode disabled');
+    }
+
+    /**
+     * Handle drag start
+     */
+    private onDragStart(e: MouseEvent | TouchEvent): void {
+        if (!this.enableDrag || !this.container) return;
+
+        this.isDragging = true;
+        this.container.style.cursor = 'grabbing';
+
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+        const rect = this.container.getBoundingClientRect();
+        this.dragStartX = clientX - rect.left - rect.width / 2;
+        this.dragStartY = clientY - rect.top - rect.height / 2;
+
+        e.preventDefault();
+    }
+
+    /**
+     * Handle drag move
+     */
+    private onDragMove(e: MouseEvent | TouchEvent): void {
+        if (!this.isDragging || !this.container) return;
+
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+        const player = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
+        if (!player) return;
+
+        const playerRect = player.getBoundingClientRect();
+
+        // Calculate percentage position within player
+        this.customX = ((clientX - playerRect.left - this.dragStartX) / playerRect.width) * 100;
+        this.customY = ((clientY - playerRect.top - this.dragStartY) / playerRect.height) * 100;
+
+        // Clamp values to prevent going off-screen
+        this.customX = Math.max(10, Math.min(90, this.customX));
+        this.customY = Math.max(5, Math.min(95, this.customY));
+
+        this.useCustomPosition = true;
+        this.updatePosition();
+        this.savePosition();
+
+        e.preventDefault();
+    }
+
+    /**
+     * Handle drag end
+     */
+    private onDragEnd(): void {
+        if (!this.isDragging) return;
+
+        this.isDragging = false;
+        if (this.container) {
+            this.container.style.cursor = 'grab';
+        }
+    }
+
+    /**
+     * Save custom position to storage
+     */
+    private savePosition(): void {
+        const videoId = this.getVideoId();
+        if (!videoId) return;
+
+        try {
+            window.sessionStorage.setItem(`bys_position_${videoId}`, JSON.stringify({
+                x: this.customX,
+                y: this.customY,
+                custom: this.useCustomPosition
+            }));
+        } catch (e) {
+            console.error('[BringYourSub] Failed to save position:', e);
+        }
+    }
+
+    /**
+     * Restore custom position from storage
+     */
+    private restorePosition(): void {
+        const videoId = this.getVideoId();
+        if (!videoId) return;
+
+        try {
+            const stored = window.sessionStorage.getItem(`bys_position_${videoId}`);
+            if (stored) {
+                const pos = JSON.parse(stored);
+                if (pos.custom) {
+                    this.customX = pos.x;
+                    this.customY = pos.y;
+                    this.useCustomPosition = true;
+                }
+            }
+        } catch (e) {
+            console.error('[BringYourSub] Failed to restore position:', e);
+        }
     }
 
     /**
@@ -295,11 +483,21 @@ class SubtitleOverlay {
     /**
      * Apply subtitles from text
      * @param subtitles - SRT format subtitle text
-     * @param fontSize - Font size setting
-     * @param position - Position setting (top/bottom)
+     * @param options - Display options including fontSize, position, bgOpacity, enableDrag, syncOffset
      * @param shouldSave - Whether to save to storage (default true)
      */
-    apply(subtitles: string, fontSize?: string, position?: string, shouldSave: boolean = true): void {
+    apply(
+        subtitles: string,
+        fontSize?: string,
+        position?: string,
+        shouldSave: boolean = true,
+        options?: {
+            bgOpacity?: number;
+            enableDrag?: boolean;
+            syncOffset?: number;
+            textColor?: string;
+        }
+    ): void {
         console.log('[BringYourSub] apply() called with', subtitles.length, 'chars');
 
         // Ensure video element exists
@@ -311,27 +509,53 @@ class SubtitleOverlay {
             }
         }
 
+        // Apply settings
         if (fontSize) {
             this.fontSize = fontSize;
         }
         if (position) {
             this.position = position;
         }
+        if (options?.bgOpacity !== undefined) {
+            this.bgOpacity = options.bgOpacity;
+        }
+        if (options?.enableDrag !== undefined) {
+            this.enableDrag = options.enableDrag;
+        }
+        if (options?.syncOffset !== undefined) {
+            this.syncOffset = options.syncOffset;
+        }
+        if (options?.textColor) {
+            this.textColor = options.textColor;
+        }
 
-        this.rawSubtitles = subtitles; // Store raw text for persistence
+        this.rawSubtitles = subtitles;
         this.cues = this.parseSRT(subtitles);
-        console.log('[BringYourSub] Parsed', this.cues.length, 'cues');
+        console.log('[BringYourSub] Parsed', this.cues.length, 'cues with syncOffset:', this.syncOffset);
 
         this.isActive = true;
 
-        // Ensure overlay exists (this won't clear cues anymore)
+        // Ensure overlay exists
         if (!this.container || !document.getElementById('bys-subtitle-overlay')) {
             this.createOverlay();
         }
 
-        // Update font size and position after overlay is created
+        // Update all styling
         this.updateFontSize();
         this.updatePosition();
+        this.updateBackgroundOpacity();
+        this.updateTextColor();
+
+        // Handle drag mode
+        if (this.enableDrag) {
+            this.enableDragMode();
+            this.restorePosition();
+            if (this.useCustomPosition) {
+                this.updatePosition();
+            }
+        } else {
+            this.disableDragMode();
+        }
 
         // Hide YouTube's native captions
         this.hideNativeCaptions();
@@ -419,13 +643,14 @@ class SubtitleOverlay {
             return;
         }
 
-        const currentTime = this.video.currentTime;
+        // Apply sync offset (convert from ms to seconds)
+        const currentTime = this.video.currentTime + (this.syncOffset / 1000);
         const currentCue = this.cues.find(
             cue => currentTime >= cue.start && currentTime <= cue.end
         );
 
         if (shouldLog) {
-            console.log('[BringYourSub] updateSubtitle: time:', currentTime.toFixed(2), 'cue found:', !!currentCue, 'text:', currentCue?.text?.substring(0, 50));
+            console.log('[BringYourSub] updateSubtitle: time:', currentTime.toFixed(2), 'offset:', this.syncOffset, 'cue found:', !!currentCue, 'text:', currentCue?.text?.substring(0, 50));
         }
 
         if (currentCue) {
@@ -514,7 +739,18 @@ try {
 
         if (message.action === 'APPLY_SUBTITLES') {
             if (message.subtitles) {
-                subtitleOverlay.apply(message.subtitles, message.fontSize, message.position);
+                subtitleOverlay.apply(
+                    message.subtitles,
+                    message.fontSize,
+                    message.position,
+                    true,
+                    {
+                        bgOpacity: message.bgOpacity,
+                        enableDrag: message.enableDrag,
+                        syncOffset: message.syncOffset,
+                        textColor: message.textColor
+                    }
+                );
                 sendResponse({ success: true });
             } else {
                 sendResponse({ success: false });

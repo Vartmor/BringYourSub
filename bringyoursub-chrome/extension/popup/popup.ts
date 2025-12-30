@@ -598,15 +598,16 @@ async function applySubtitlesToVideo(subtitles: string): Promise<void> {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) return;
 
-    const settings = await chrome.storage.local.get(['fontSize', 'position', 'bgOpacity', 'enableDrag']);
+    const settings = await chrome.storage.local.get(['fontSize', 'position', 'bgOpacity', 'enableDrag', 'syncOffset']);
 
     chrome.tabs.sendMessage(tab.id, {
         action: 'APPLY_SUBTITLES',
         subtitles,
         fontSize: settings.fontSize || 'medium',
         position: settings.position || 'bottom',
-        bgOpacity: settings.bgOpacity || 75,
-        enableDrag: settings.enableDrag || false
+        bgOpacity: settings.bgOpacity ?? 75,
+        enableDrag: settings.enableDrag ?? false,
+        syncOffset: settings.syncOffset ?? 0
     }, (response) => {
         if (response?.success) {
             showToast('Subtitles applied to video!', 'success');
