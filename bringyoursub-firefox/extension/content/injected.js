@@ -127,7 +127,11 @@
                 if (!captionText && videoId) {
                     console.log('[BringYourSub Injected] Trying ANDROID client Innertube API...');
 
-                    // Extract API key from page
+                    // Extract API key from page, or use public fallback
+                    // NOTE: The fallback key below is a PUBLIC YouTube Innertube API key
+                    // It is NOT a secret - it's exposed in YouTube's page source and used by
+                    // many open-source tools (yt-dlp, youtube-dl, etc.)
+                    // See: https://github.com/yt-dlp/yt-dlp
                     const html = document.documentElement.innerHTML;
                     const keyMatch = html.match(/"INNERTUBE_API_KEY":"([^"]+)"/);
                     const apiKey = keyMatch ? keyMatch[1] : 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';

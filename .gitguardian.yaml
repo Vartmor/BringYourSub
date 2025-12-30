@@ -1,0 +1,18 @@
+# GitGuardian configuration
+# https://docs.gitguardian.com/ggshield-docs/reference/gitguardian-yaml
+
+# Paths to ignore during scanning
+paths-ignore:
+  # Distribution/build files (mirrors of source)
+  - "bringyoursub-chrome/dist/**"
+  - "bringyoursub-firefox/dist/**"
+  - "node_modules/**"
+
+# Specific matches to ignore (false positives)
+matches-ignore:
+  # Public YouTube Innertube API key - NOT a secret
+  # This is a publicly-known fallback key exposed in YouTube's page source
+  # Used by many open-source tools (yt-dlp, youtube-dl, etc.)
+  # Reference: https://github.com/yt-dlp/yt-dlp
+  - name: "YouTube Innertube public API key (not a secret)"
+    match: "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8"
