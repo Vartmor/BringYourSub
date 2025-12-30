@@ -11,39 +11,68 @@
 [![Firefox](https://img.shields.io/badge/Firefox-Add--on-FF7139?logo=firefox&logoColor=white)](https://github.com)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-[Features](#features) | [Installation](#installation) | [Usage](#usage) | [Development](#development)
+[🇹🇷 Türkçe](README_TR.md)
 
 </div>
 
 ---
 
-## Features
+## 📑 Table of Contents
 
-### Privacy-First (BYOK)
+- [Features](#-features)
+- [Screenshots](#-screenshots)
+- [Installation](#-installation)
+- [Usage](#-usage)
+- [Development](#-development)
+- [Feedback](#feedback)
+- [Security](#-security)
+- [License](#-license)
+
+---
+
+## ✨ Features
+
+### 🔐 Privacy-First (BYOK)
 Your API key stays in your browser. No backend servers, no data collection, no tracking.
 
-### Context-Lock Translation
+### 🧠 Context-Lock Translation
 Unlike sentence-by-sentence translation, BringYourSub analyzes the entire video context first, ensuring:
 - Consistent terminology throughout
 - Natural-sounding translations
 - Proper handling of technical terms
 
-### Whisper Fallback
+### 🎙️ Whisper Fallback
 No captions on the video? No problem. Automatically falls back to OpenAI's Whisper for audio transcription.
 
-### Multi-Language Support
+### 🌍 Multi-Language Support
 - Turkish
 - German
 - Spanish
 - French
 - Italian
 
-### Modern UI
+### 🎨 Modern UI
 Sleek dark-mode interface with smooth animations and intuitive controls.
 
 ---
 
-## Installation
+## 📸 Screenshots
+
+### Extension Popup
+<!-- Add screenshot here: popup interface -->
+![Extension Popup](docs/screenshots/popup.png)
+
+### Subtitle Generation
+<!-- Add screenshot here: subtitle generation in progress -->
+![Subtitle Generation](docs/screenshots/generation.png)
+
+### YouTube Overlay
+<!-- Add screenshot here: subtitles displayed on YouTube -->
+![YouTube Overlay](docs/screenshots/overlay.png)
+
+---
+
+## 📦 Installation
 
 ### Prerequisites
 
@@ -75,7 +104,7 @@ Before installing, make sure you have:
 6. Navigate to `bringyoursub-firefox/dist` folder and select `manifest.json`
 7. The extension icon will appear in your toolbar
 
-> Note: Firefox temporary add-ons are removed when the browser is closed. For permanent installation, the extension needs to be signed by Mozilla.
+> **Note:** Firefox temporary add-ons are removed when the browser is closed. For permanent installation, the extension needs to be signed by Mozilla.
 
 ### Method 2: Build from Source
 
@@ -141,7 +170,7 @@ Before installing, make sure you have:
 
 ---
 
-## Usage
+## 🚀 Usage
 
 1. **Get an OpenAI API Key**
    - Visit [platform.openai.com](https://platform.openai.com/api-keys)
@@ -160,7 +189,7 @@ Before installing, make sure you have:
 
 ---
 
-## Development
+## 🛠️ Development
 
 ### Commands
 
@@ -203,7 +232,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 
 ---
 
-## Security
+## 🔒 Security
 
 This extension uses a **Bring Your Own Key (BYOK)** architecture. Your API key is:
 - Stored locally in your browser
@@ -214,7 +243,7 @@ See [SECURITY.md](SECURITY.md) for more details.
 
 ---
 
-## License
+## 📜 License
 
 MIT License - Muhammed Koseoglu
 
@@ -229,5 +258,5 @@ See [LICENSE](LICENSE) for more information.
 ---
 
 <div align="center">
-Made for the community
+Made with ❤️ for the community
 </div>
