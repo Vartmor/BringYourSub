@@ -28,6 +28,7 @@ interface SubtitleCue {
 interface SubtitleMessage {
     action: string;
     subtitles?: string;
+    originalSubtitles?: string; // For dual subtitles
     fontSize?: string;
     position?: string;
     bgOpacity?: number;
@@ -36,6 +37,9 @@ interface SubtitleMessage {
     animation?: string;
     textColor?: string;
     fontFamily?: string;
+    dualMode?: boolean;
+    dualLayout?: 'stacked' | 'sideBySide';
+    primaryLanguage?: 'original' | 'translation';
 }
 
 // =====================
@@ -66,6 +70,16 @@ class SubtitleOverlay {
     private customX = 50; // percentage from left
     private customY = 90; // percentage from top
     private useCustomPosition = false;
+
+    // Dual subtitle support
+    private dualMode = false;
+    private dualLayout: 'stacked' | 'sideBySide' = 'stacked';
+    private primaryLanguage: 'original' | 'translation' = 'original';
+    private originalCues: SubtitleCue[] = [];
+    private translatedCues: SubtitleCue[] = [];
+    private primaryTextElement: HTMLDivElement | null = null;
+    private secondaryTextElement: HTMLDivElement | null = null;
+    private rawOriginalSubtitles: string = '';
 
     private readonly fontSizes: Record<string, string> = {
         small: '14px',
@@ -196,33 +210,80 @@ class SubtitleOverlay {
             bottom: 80px !important;
             z-index: 9999 !important;
             display: flex !important;
-            justify-content: center !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: ${this.dualMode ? '4px' : '0'} !important;
             pointer-events: none !important;
             visibility: visible !important;
         `;
 
-        this.textElement = document.createElement('div');
-        this.textElement.id = 'bys-subtitle-text';
-        this.textElement.style.cssText = `
-            background: rgba(0, 0, 0, 0.85) !important;
-            color: #ffffff !important;
-            padding: 10px 20px !important;
-            border-radius: 6px !important;
-            font-family: 'YouTube Noto', Roboto, Arial, sans-serif !important;
-            text-align: center !important;
-            max-width: 80% !important;
-            line-height: 1.4 !important;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8) !important;
-            font-size: 18px !important;
-            font-weight: 500 !important;
-            visibility: visible !important;
-            display: inline-block !important;
-        `;
-        this.updateFontSize();
+        if (this.dualMode) {
+            // Dual mode: create primary and secondary elements
+            this.primaryTextElement = document.createElement('div');
+            this.primaryTextElement.id = 'bys-primary-subtitle';
+            this.primaryTextElement.style.cssText = `
+                background: rgba(0, 0, 0, 0.6) !important;
+                color: #cccccc !important;
+                padding: 6px 16px !important;
+                border-radius: 4px !important;
+                font-family: 'YouTube Noto', Roboto, Arial, sans-serif !important;
+                text-align: center !important;
+                max-width: 80% !important;
+                line-height: 1.3 !important;
+                font-size: 14px !important;
+                font-weight: 400 !important;
+                visibility: visible !important;
+                display: none !important;
+            `;
 
-        this.container.appendChild(this.textElement);
+            this.secondaryTextElement = document.createElement('div');
+            this.secondaryTextElement.id = 'bys-secondary-subtitle';
+            this.secondaryTextElement.style.cssText = `
+                background: rgba(0, 0, 0, 0.85) !important;
+                color: #ffffff !important;
+                padding: 10px 20px !important;
+                border-radius: 6px !important;
+                font-family: 'YouTube Noto', Roboto, Arial, sans-serif !important;
+                text-align: center !important;
+                max-width: 80% !important;
+                line-height: 1.4 !important;
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8) !important;
+                font-size: 18px !important;
+                font-weight: 500 !important;
+                visibility: visible !important;
+                display: none !important;
+            `;
+
+            this.container.appendChild(this.primaryTextElement);
+            this.container.appendChild(this.secondaryTextElement);
+
+            // Also set textElement for compatibility
+            this.textElement = this.secondaryTextElement;
+        } else {
+            // Single mode: create only one text element
+            this.textElement = document.createElement('div');
+            this.textElement.id = 'bys-subtitle-text';
+            this.textElement.style.cssText = `
+                background: rgba(0, 0, 0, 0.85) !important;
+                color: #ffffff !important;
+                padding: 10px 20px !important;
+                border-radius: 6px !important;
+                font-family: 'YouTube Noto', Roboto, Arial, sans-serif !important;
+                text-align: center !important;
+                max-width: 80% !important;
+                line-height: 1.4 !important;
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8) !important;
+                font-size: 18px !important;
+                font-weight: 500 !important;
+                visibility: visible !important;
+                display: inline-block !important;
+            `;
+            this.container.appendChild(this.textElement);
+        }
+
+        this.updateFontSize();
         container.appendChild(this.container);
-        console.log('[BringYourSub] Created subtitle overlay, parent:', container.className);
+        console.log('[BringYourSub] Created subtitle overlay, dualMode:', this.dualMode, 'parent:', container.className);
     }
 
     /**
@@ -482,8 +543,8 @@ class SubtitleOverlay {
 
     /**
      * Apply subtitles from text
-     * @param subtitles - SRT format subtitle text
-     * @param options - Display options including fontSize, position, bgOpacity, enableDrag, syncOffset
+     * @param subtitles - SRT format subtitle text (translated)
+     * @param options - Display options including fontSize, position, bgOpacity, enableDrag, syncOffset, dual mode
      * @param shouldSave - Whether to save to storage (default true)
      */
     apply(
@@ -496,9 +557,13 @@ class SubtitleOverlay {
             enableDrag?: boolean;
             syncOffset?: number;
             textColor?: string;
+            originalSubtitles?: string;
+            dualMode?: boolean;
+            dualLayout?: 'stacked' | 'sideBySide';
+            primaryLanguage?: 'original' | 'translation';
         }
     ): void {
-        console.log('[BringYourSub] apply() called with', subtitles.length, 'chars');
+        console.log('[BringYourSub] apply() called with', subtitles.length, 'chars, dualMode:', options?.dualMode);
 
         // Ensure video element exists
         if (!this.video) {
@@ -529,16 +594,39 @@ class SubtitleOverlay {
             this.textColor = options.textColor;
         }
 
+        // Handle dual mode settings
+        if (options?.dualMode !== undefined) {
+            this.dualMode = options.dualMode;
+        }
+        if (options?.dualLayout) {
+            this.dualLayout = options.dualLayout;
+        }
+        if (options?.primaryLanguage) {
+            this.primaryLanguage = options.primaryLanguage;
+        }
+
+        // Parse subtitles
         this.rawSubtitles = subtitles;
-        this.cues = this.parseSRT(subtitles);
-        console.log('[BringYourSub] Parsed', this.cues.length, 'cues with syncOffset:', this.syncOffset);
+        this.translatedCues = this.parseSRT(subtitles);
+        this.cues = this.translatedCues; // For backward compatibility
+
+        // Parse original subtitles if in dual mode
+        if (this.dualMode && options?.originalSubtitles) {
+            this.rawOriginalSubtitles = options.originalSubtitles;
+            this.originalCues = this.parseSRT(options.originalSubtitles);
+            console.log('[BringYourSub] Dual mode - Parsed', this.originalCues.length, 'original cues and', this.translatedCues.length, 'translated cues');
+        } else {
+            console.log('[BringYourSub] Single mode - Parsed', this.cues.length, 'cues');
+        }
 
         this.isActive = true;
 
-        // Ensure overlay exists
-        if (!this.container || !document.getElementById('bys-subtitle-overlay')) {
-            this.createOverlay();
+        // Recreate overlay for correct mode
+        if (this.container) {
+            this.container.remove();
+            this.container = null;
         }
+        this.createOverlay();
 
         // Update all styling
         this.updateFontSize();
@@ -571,7 +659,7 @@ class SubtitleOverlay {
             this.saveSubtitles();
         }
 
-        console.log(`[BringYourSub] Applied ${this.cues.length} subtitle cues, sync started`);
+        console.log(`[BringYourSub] Applied subtitles, dualMode: ${this.dualMode}, sync started`);
     }
 
     /**
@@ -636,31 +724,70 @@ class SubtitleOverlay {
      * Update displayed subtitle based on current time
      */
     private updateSubtitle(shouldLog: boolean = false): void {
-        if (!this.video || !this.textElement || !this.isActive) {
+        if (!this.video || !this.isActive) {
             if (shouldLog) {
-                console.log('[BringYourSub] updateSubtitle skip: video:', !!this.video, 'textElement:', !!this.textElement, 'isActive:', this.isActive);
+                console.log('[BringYourSub] updateSubtitle skip: video:', !!this.video, 'isActive:', this.isActive);
             }
             return;
         }
 
         // Apply sync offset (convert from ms to seconds)
         const currentTime = this.video.currentTime + (this.syncOffset / 1000);
-        const currentCue = this.cues.find(
-            cue => currentTime >= cue.start && currentTime <= cue.end
-        );
 
-        if (shouldLog) {
-            console.log('[BringYourSub] updateSubtitle: time:', currentTime.toFixed(2), 'offset:', this.syncOffset, 'cue found:', !!currentCue, 'text:', currentCue?.text?.substring(0, 50));
-        }
+        if (this.dualMode && this.primaryTextElement && this.secondaryTextElement) {
+            // Dual mode: show both original and translated
+            const originalCue = this.findCueAtTime(this.originalCues, currentTime);
+            const translatedCue = this.findCueAtTime(this.translatedCues, currentTime);
 
-        if (currentCue) {
-            this.textElement.textContent = currentCue.text;
-            this.textElement.style.display = 'inline-block';
-            this.textElement.style.visibility = 'visible';
-        } else {
-            this.textElement.textContent = '';
-            this.textElement.style.display = 'none';
+            if (shouldLog) {
+                console.log('[BringYourSub] Dual mode - time:', currentTime.toFixed(2),
+                    'original:', originalCue?.text?.substring(0, 30),
+                    'translated:', translatedCue?.text?.substring(0, 30));
+            }
+
+            // Primary (top) - determined by primaryLanguage setting
+            const primaryCue = this.primaryLanguage === 'original' ? originalCue : translatedCue;
+            const secondaryCue = this.primaryLanguage === 'original' ? translatedCue : originalCue;
+
+            if (primaryCue) {
+                this.primaryTextElement.textContent = primaryCue.text;
+                this.primaryTextElement.style.display = 'inline-block';
+            } else {
+                this.primaryTextElement.textContent = '';
+                this.primaryTextElement.style.display = 'none';
+            }
+
+            if (secondaryCue) {
+                this.secondaryTextElement.textContent = secondaryCue.text;
+                this.secondaryTextElement.style.display = 'inline-block';
+            } else {
+                this.secondaryTextElement.textContent = '';
+                this.secondaryTextElement.style.display = 'none';
+            }
+        } else if (this.textElement) {
+            // Single mode
+            const currentCue = this.findCueAtTime(this.cues, currentTime);
+
+            if (shouldLog) {
+                console.log('[BringYourSub] updateSubtitle: time:', currentTime.toFixed(2), 'offset:', this.syncOffset, 'cue found:', !!currentCue, 'text:', currentCue?.text?.substring(0, 50));
+            }
+
+            if (currentCue) {
+                this.textElement.textContent = currentCue.text;
+                this.textElement.style.display = 'inline-block';
+                this.textElement.style.visibility = 'visible';
+            } else {
+                this.textElement.textContent = '';
+                this.textElement.style.display = 'none';
+            }
         }
+    }
+
+    /**
+     * Find cue at a specific time
+     */
+    private findCueAtTime(cues: SubtitleCue[], time: number): SubtitleCue | undefined {
+        return cues.find(cue => time >= cue.start && time <= cue.end);
     }
 
     /**
@@ -748,7 +875,11 @@ try {
                         bgOpacity: message.bgOpacity,
                         enableDrag: message.enableDrag,
                         syncOffset: message.syncOffset,
-                        textColor: message.textColor
+                        textColor: message.textColor,
+                        originalSubtitles: message.originalSubtitles,
+                        dualMode: message.dualMode,
+                        dualLayout: message.dualLayout,
+                        primaryLanguage: message.primaryLanguage
                     }
                 );
                 sendResponse({ success: true });

@@ -4,9 +4,10 @@
 
 ![BringYourSub Logo](bringyoursub-chrome/icons/icon128.png)
 
-**Generate high-quality, context-aware translated subtitles for YouTube videos using your own OpenAI API key.**
+**Generate high-quality, AI-powered translated subtitles for YouTube videos using your own API key.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Version](https://img.shields.io/badge/Version-2.0.0-blue.svg)](https://github.com/Vartmor/bringyoursub/releases)
 [![Chrome](https://img.shields.io/badge/Chrome-Extension-4285F4?logo=googlechrome&logoColor=white)](https://github.com)
 [![Firefox](https://img.shields.io/badge/Firefox-Add--on-FF7139?logo=firefox&logoColor=white)](https://github.com)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -20,6 +21,7 @@
 ## 📑 Table of Contents
 
 - [Features](#-features)
+- [Supported Providers](#-supported-providers)
 - [Screenshots](#-screenshots)
 - [Installation](#-installation)
 - [Usage](#-usage)
@@ -35,24 +37,48 @@
 ### 🔐 Privacy-First (BYOK)
 Your API key stays in your browser. No backend servers, no data collection, no tracking.
 
+### 🤖 Multi-Provider Support (NEW in v2.0)
+Choose from 7 AI providers:
+- **Cloud:** OpenAI, Anthropic (Claude), Google (Gemini), Groq, OpenRouter
+- **Local:** LM Studio, Ollama - Run models on your own hardware!
+
 ### 🧠 Context-Lock Translation
 Unlike sentence-by-sentence translation, BringYourSub analyzes the entire video context first, ensuring:
 - Consistent terminology throughout
 - Natural-sounding translations
 - Proper handling of technical terms
 
+### 📚 Dual Subtitles (Language Learning)
+Display both original and translated subtitles simultaneously - perfect for language learners!
+
 ### 🎙️ Whisper Fallback
 No captions on the video? No problem. Automatically falls back to OpenAI's Whisper for audio transcription.
 
-### 🌍 Multi-Language Support
-- Turkish
-- German
-- Spanish
-- French
-- Italian
+### 🎨 Draggable Subtitles
+Customize subtitle position by dragging them anywhere on the video player.
 
-### 🎨 Modern UI
-Sleek dark-mode interface with smooth animations and intuitive controls.
+### 🌍 48+ Languages Support
+Turkish, English, German, Spanish, French, Italian, Portuguese, Russian, Japanese, Korean, Chinese, Arabic, and many more!
+
+### 🎯 Extended Settings
+- Background opacity control
+- Sync offset adjustment
+- Font size options
+- Auto-apply on generation
+
+---
+
+## 🤖 Supported Providers
+
+| Provider | Type | Models | Free Tier |
+|----------|------|--------|-----------|
+| **OpenAI** | Cloud | GPT-4o, GPT-4o-mini, o1 | ❌ |
+| **Anthropic** | Cloud | Claude 3.5 Sonnet, Opus, Haiku | ❌ |
+| **Google** | Cloud | Gemini 2.0, 1.5 Pro/Flash | ✅ |
+| **Groq** | Cloud | Llama 3.3, Mixtral, Gemma | ✅ |
+| **OpenRouter** | Cloud | 100+ models | Varies |
+| **LM Studio** | Local | Any GGUF model | ✅ (Free) |
+| **Ollama** | Local | Any Ollama model | ✅ (Free) |
 
 ---
 
@@ -172,19 +198,27 @@ Before installing, make sure you have:
 
 ## 🚀 Usage
 
-1. **Get an OpenAI API Key**
-   - Visit [platform.openai.com](https://platform.openai.com/api-keys)
-   - Create a new API key
+1. **Get an API Key** (or use local models)
+   - **OpenAI:** [platform.openai.com](https://platform.openai.com/api-keys)
+   - **Anthropic:** [console.anthropic.com](https://console.anthropic.com/)
+   - **Google:** [aistudio.google.com](https://aistudio.google.com/apikey)
+   - **Groq:** [console.groq.com](https://console.groq.com/keys)
+   - **Local:** No API key needed with LM Studio or Ollama
 
 2. **Open a YouTube Video**
    - Navigate to any YouTube video
 
 3. **Click the Extension Icon**
-   - Enter your API key
+   - Select your AI provider
+   - Enter your API key (if required)
+   - Choose a model
    - Select target language
+   - Enable "Dual Subtitles" for language learning (optional)
    - Click "Generate Subtitles"
 
-4. **Export**
+4. **Customize & Export**
+   - Drag subtitles to reposition
+   - Adjust opacity and sync offset in Settings
    - Copy to clipboard or download as .SRT file
 
 ---
@@ -254,6 +288,12 @@ See [LICENSE](LICENSE) for more information.
 ## Acknowledgments
 
 - [OpenAI](https://openai.com) for GPT and Whisper APIs
+- [Anthropic](https://anthropic.com) for Claude AI
+- [Google](https://ai.google.dev) for Gemini AI
+- [Groq](https://groq.com) for ultra-fast inference
+- [OpenRouter](https://openrouter.ai) for unified API access
+- [LM Studio](https://lmstudio.ai) for local model support
+- [Ollama](https://ollama.ai) for local model support
 
 ---
 

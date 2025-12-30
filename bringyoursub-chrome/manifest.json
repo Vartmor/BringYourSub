@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "BringYourSub – AI YouTube Subtitle Generator",
-  "version": "1.0.0",
-  "description": "Generate high-quality translated subtitles for YouTube using your own OpenAI API key. Privacy-focused with BYOK (Bring Your Own Key).",
+  "version": "2.0.0",
+  "description": "Generate AI-powered subtitles for YouTube videos using your own API key. Supports OpenAI, Anthropic, Google, Groq, and local models. Privacy-first BYOK.",
   "permissions": [
     "storage",
     "activeTab",
@@ -12,7 +12,13 @@
     "https://www.youtube.com/*",
     "https://*.youtube.com/*",
     "https://*.googlevideo.com/*",
-    "https://api.openai.com/*"
+    "https://api.openai.com/*",
+    "https://api.anthropic.com/*",
+    "https://generativelanguage.googleapis.com/*",
+    "https://api.groq.com/*",
+    "https://openrouter.ai/*",
+    "http://localhost:1234/*",
+    "http://localhost:11434/*"
   ],
   "action": {
     "default_popup": "extension/popup/popup.html",
