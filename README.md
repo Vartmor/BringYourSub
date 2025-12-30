@@ -1,4 +1,4 @@
-# BringYourSub – AI YouTube Subtitle Generator
+# BringYourSub - AI YouTube Subtitle Generator
 
 <div align="center">
 
@@ -11,73 +11,137 @@
 [![Firefox](https://img.shields.io/badge/Firefox-Add--on-FF7139?logo=firefox&logoColor=white)](https://github.com)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-[Features](#features) • [Installation](#installation) • [Usage](#usage) • [Development](#development) • [Contributing](#contributing)
+[Features](#features) | [Installation](#installation) | [Usage](#usage) | [Development](#development)
 
 </div>
 
 ---
 
-## ✨ Features
+## Features
 
-### 🔐 Privacy-First (BYOK)
+### Privacy-First (BYOK)
 Your API key stays in your browser. No backend servers, no data collection, no tracking.
 
-### 🧠 Context-Lock Translation
+### Context-Lock Translation
 Unlike sentence-by-sentence translation, BringYourSub analyzes the entire video context first, ensuring:
 - Consistent terminology throughout
 - Natural-sounding translations
 - Proper handling of technical terms
 
-### 🎙️ Whisper Fallback
+### Whisper Fallback
 No captions on the video? No problem. Automatically falls back to OpenAI's Whisper for audio transcription.
 
-### 🌍 Multi-Language Support
-- Turkish 🇹🇷
-- German 🇩🇪
-- Spanish 🇪🇸
-- French 🇫🇷
-- Italian 🇮🇹
+### Multi-Language Support
+- Turkish
+- German
+- Spanish
+- French
+- Italian
 
-### 🎨 Modern UI
+### Modern UI
 Sleek dark-mode interface with smooth animations and intuitive controls.
 
 ---
 
-## 📦 Installation
+## Installation
 
-### From Source (Development)
+### Prerequisites
 
-1. **Clone the repository:**
+Before installing, make sure you have:
+- **OpenAI API Key** - Get one from [platform.openai.com](https://platform.openai.com/api-keys)
+
+### Method 1: Pre-built Extension (Recommended)
+
+#### Google Chrome / Chromium-based Browsers (Edge, Brave, Opera, Vivaldi)
+
+1. Download the latest release from the [Releases](https://github.com/Vartmor/bringyoursub/releases) page
+2. Extract the ZIP file to a folder
+3. Open your browser and go to the extensions page:
+   - **Chrome**: Type `chrome://extensions/` in the address bar
+   - **Edge**: Type `edge://extensions/` in the address bar
+   - **Brave**: Type `brave://extensions/` in the address bar
+4. Enable **Developer mode** (toggle in the top-right corner)
+5. Click **Load unpacked**
+6. Select the `bringyoursub-chrome/dist` folder
+7. The extension icon will appear in your toolbar
+
+#### Mozilla Firefox
+
+1. Download the latest release from the [Releases](https://github.com/Vartmor/bringyoursub/releases) page
+2. Extract the ZIP file to a folder
+3. Open Firefox and type `about:debugging` in the address bar
+4. Click **This Firefox** in the left sidebar
+5. Click **Load Temporary Add-on**
+6. Navigate to `bringyoursub-firefox/dist` folder and select `manifest.json`
+7. The extension icon will appear in your toolbar
+
+> Note: Firefox temporary add-ons are removed when the browser is closed. For permanent installation, the extension needs to be signed by Mozilla.
+
+### Method 2: Build from Source
+
+#### Requirements
+- Node.js 18 or higher
+- npm (comes with Node.js)
+
+#### Windows
+
+1. Open Command Prompt or PowerShell
+2. Clone the repository:
+   ```cmd
+   git clone https://github.com/Vartmor/bringyoursub.git
+   cd bringyoursub
+   ```
+3. Install dependencies:
+   ```cmd
+   npm install
+   ```
+4. Build the extensions:
+   ```cmd
+   npm run build
+   ```
+5. Follow the browser-specific instructions above to load the extension from:
+   - Chrome: `bringyoursub-chrome/dist`
+   - Firefox: `bringyoursub-firefox/dist/manifest.json`
+
+#### macOS
+
+1. Open Terminal
+2. Clone the repository:
    ```bash
    git clone https://github.com/Vartmor/bringyoursub.git
    cd bringyoursub
    ```
-
-2. **Install dependencies:**
+3. Install dependencies:
    ```bash
    npm install
    ```
-
-3. **Build the extensions:**
+4. Build the extensions:
    ```bash
    npm run build
    ```
+5. Follow the browser-specific instructions above to load the extension
 
-4. **Load in Chrome:**
-   - Go to `chrome://extensions/`
-   - Enable "Developer mode"
-   - Click "Load unpacked"
-   - Select `bringyoursub-chrome/dist`
+#### Linux
 
-5. **Load in Firefox:**
-   - Go to `about:debugging`
-   - Click "This Firefox"
-   - Click "Load Temporary Add-on"
-   - Select `bringyoursub-firefox/dist/manifest.json`
+1. Open Terminal
+2. Clone the repository:
+   ```bash
+   git clone https://github.com/Vartmor/bringyoursub.git
+   cd bringyoursub
+   ```
+3. Install dependencies:
+   ```bash
+   npm install
+   ```
+4. Build the extensions:
+   ```bash
+   npm run build
+   ```
+5. Follow the browser-specific instructions above to load the extension
 
 ---
 
-## 🚀 Usage
+## Usage
 
 1. **Get an OpenAI API Key**
    - Visit [platform.openai.com](https://platform.openai.com/api-keys)
@@ -96,11 +160,7 @@ Sleek dark-mode interface with smooth animations and intuitive controls.
 
 ---
 
-## 🛠️ Development
-
-### Prerequisites
-- Node.js 18+
-- npm
+## Development
 
 ### Commands
 
@@ -135,21 +195,15 @@ bringyoursub/
 
 ---
 
-## 🤝 Contributing
+## Feedback
 
-Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md) first.
+Have a suggestion or found a bug? Please open an issue on [GitHub](https://github.com/Vartmor/bringyoursub/issues).
 
-### Quick Start
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'feat: add amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
+See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 
 ---
 
-## 🔒 Security
+## Security
 
 This extension uses a **Bring Your Own Key (BYOK)** architecture. Your API key is:
 - Stored locally in your browser
@@ -160,21 +214,20 @@ See [SECURITY.md](SECURITY.md) for more details.
 
 ---
 
-## 📜 License
+## License
 
-MIT © Muhammed Köseoğlu
+MIT License - Muhammed Koseoglu
 
 See [LICENSE](LICENSE) for more information.
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - [OpenAI](https://openai.com) for GPT and Whisper APIs
-- All our [contributors](https://github.com/Vartmor/bringyoursub/contributors)
 
 ---
 
 <div align="center">
-Made with ❤️ for the community
+Made for the community
 </div>
