@@ -2,6 +2,7 @@
  * BringYourSub - Popup UI Controller
  * 
  * Handles all popup interactions including:
+ * - Multi-provider support (OpenAI, Anthropic, Google, Groq, etc.)
  * - Tab navigation with smooth animations
  * - Theme switching (dark/light)
  * - Toast notifications
@@ -16,8 +17,17 @@
 // Imports
 // =====================
 import { Icons, setIcon } from './icons';
-import { initTheme, toggleTheme, getCurrentTheme, watchSystemTheme } from './theme';
-import { LANGUAGES, DEFAULT_LANGUAGE } from './languages';
+import { initTheme, toggleTheme, watchSystemTheme } from './theme';
+import { LANGUAGES } from './languages';
+import {
+    providers,
+    getProvider,
+    providerManager,
+    cloudProviders,
+    localProviders,
+    type ProviderId,
+    type Model
+} from '../../shared/ai-core/providers';
 
 // =====================
 // Firefox Polyfill (MUST BE FIRST)
@@ -26,7 +36,6 @@ declare const browser: typeof chrome | undefined;
 if (typeof browser !== 'undefined' && typeof chrome === 'undefined') {
     (globalThis as any).chrome = browser;
 } else if (typeof browser !== 'undefined') {
-    // Firefox with chrome defined but browser is the real API
     (globalThis as any).chrome = browser;
 }
 console.log('[BringYourSub] Popup loaded, chrome API:', typeof chrome !== 'undefined' ? 'available' : 'missing');
@@ -38,20 +47,33 @@ const tabs = document.querySelectorAll<HTMLButtonElement>('.tab');
 const tabContents = document.querySelectorAll<HTMLElement>('.tab-content');
 const tabsContainer = document.querySelector<HTMLElement>('.tabs');
 
+// Provider elements
+const providerSelect = document.getElementById('provider') as HTMLSelectElement;
+const apiKeyField = document.getElementById('apiKeyField') as HTMLDivElement;
+const apiKeyLabel = document.getElementById('apiKeyLabel') as HTMLSpanElement;
 const apiKeyInput = document.getElementById('apiKey') as HTMLInputElement;
 const toggleKeyBtn = document.getElementById('toggleKey') as HTMLButtonElement;
 const testKeyBtn = document.getElementById('testKey') as HTMLButtonElement;
-const languageSelect = document.getElementById('language') as HTMLSelectElement;
-const modelSelect = document.getElementById('model') as HTMLSelectElement;
-const generateBtn = document.getElementById('generateBtn') as HTMLButtonElement;
-const themeToggleBtn = document.getElementById('themeToggle') as HTMLButtonElement;
-const dualSubtitlesToggle = document.getElementById('dualSubtitles') as HTMLInputElement;
 
+// Model elements
+const modelSelect = document.getElementById('model') as HTMLSelectElement;
+const refreshModelsBtn = document.getElementById('refreshModels') as HTMLButtonElement;
+
+// Language elements
+const languageSelect = document.getElementById('language') as HTMLSelectElement;
+
+// Generate elements
+const generateBtn = document.getElementById('generateBtn') as HTMLButtonElement;
+const dualSubtitlesToggle = document.getElementById('dualSubtitles') as HTMLInputElement;
+const themeToggleBtn = document.getElementById('themeToggle') as HTMLButtonElement;
+
+// Progress elements
 const progressContainer = document.getElementById('progressContainer') as HTMLDivElement;
 const progressFill = document.getElementById('progressFill') as HTMLDivElement;
 const statusText = document.getElementById('statusText') as HTMLParagraphElement;
 const steps = document.querySelectorAll<HTMLElement>('.step');
 
+// Result elements
 const resultContainer = document.getElementById('resultContainer') as HTMLDivElement;
 const outputPreview = document.getElementById('outputPreview') as HTMLTextAreaElement;
 const copyBtn = document.getElementById('copyBtn') as HTMLButtonElement;
@@ -70,24 +92,12 @@ const bgOpacitySlider = document.getElementById('bgOpacity') as HTMLInputElement
 const bgOpacityValue = document.getElementById('bgOpacityValue') as HTMLSpanElement;
 const syncOffsetInput = document.getElementById('syncOffset') as HTMLInputElement;
 const saveSettingsBtn = document.getElementById('saveSettings') as HTMLButtonElement;
-const refreshModelsBtn = document.getElementById('refreshModels') as HTMLButtonElement;
 
 // =====================
-// Settings Interface
+// State
 // =====================
-interface Settings {
-    openaiApiKey: string;
-    targetLanguage: string;
-    fontSize: string;
-    position: string;
-    autoApply: boolean;
-    hideOnPause: boolean;
-    enableDrag: boolean;
-    bgOpacity: number;
-    syncOffset: number;
-    model: string;
-    dualSubtitles: boolean;
-}
+let currentProvider: ProviderId = 'openai';
+let keyVisible = false;
 
 // =====================
 // Initialize Icons
@@ -104,6 +114,8 @@ function initIcons(): void {
     setIcon(document.getElementById('tabIconAbout')!, 'info');
 
     // Generate tab
+    const labelIconProvider = document.getElementById('labelIconProvider');
+    if (labelIconProvider) setIcon(labelIconProvider, 'cloud');
     setIcon(document.getElementById('labelIconKey')!, 'key');
     setIcon(document.getElementById('labelIconModel')!, 'cpu');
     setIcon(document.getElementById('labelIconLanguage')!, 'globe');
@@ -150,6 +162,99 @@ function populateLanguages(): void {
 }
 
 // =====================
+// Provider Management
+// =====================
+async function updateProviderUI(providerId: ProviderId): Promise<void> {
+    currentProvider = providerId;
+    const provider = getProvider(providerId);
+    const isLocal = localProviders.includes(providerId);
+
+    // Update API key field visibility and placeholder
+    if (apiKeyField) {
+        apiKeyField.style.display = isLocal ? 'none' : 'block';
+    }
+
+    if (apiKeyLabel) {
+        apiKeyLabel.textContent = `${provider.config.name} API Key`;
+    }
+
+    if (apiKeyInput) {
+        apiKeyInput.placeholder = provider.config.apiKeyPlaceholder;
+        // Load saved API key for this provider
+        const savedKey = providerManager.getApiKey(providerId);
+        apiKeyInput.value = savedKey || '';
+    }
+
+    // Update models
+    await updateModels(providerId);
+}
+
+async function updateModels(providerId: ProviderId, forceRefresh = false): Promise<void> {
+    const provider = getProvider(providerId);
+
+    // Show loading state
+    modelSelect.innerHTML = '<option value="">Loading models...</option>';
+    modelSelect.disabled = true;
+
+    try {
+        const apiKey = providerManager.getApiKey(providerId);
+        const models = await providerManager.getModels(providerId, forceRefresh);
+
+        modelSelect.innerHTML = '';
+        models.forEach((model: Model) => {
+            const option = document.createElement('option');
+            option.value = model.id;
+            option.textContent = model.name;
+            if (model.description) {
+                option.title = model.description;
+            }
+            modelSelect.appendChild(option);
+        });
+
+        // Restore selected model
+        const savedModel = providerManager.getSelectedModel(providerId);
+        if (savedModel) {
+            modelSelect.value = savedModel;
+        }
+
+        modelSelect.disabled = false;
+    } catch (error) {
+        console.error('[BringYourSub] Failed to load models:', error);
+        modelSelect.innerHTML = '';
+        provider.config.defaultModels.forEach((model: Model) => {
+            const option = document.createElement('option');
+            option.value = model.id;
+            option.textContent = model.name;
+            modelSelect.appendChild(option);
+        });
+        modelSelect.disabled = false;
+    }
+}
+
+// Provider selection change
+providerSelect?.addEventListener('change', async () => {
+    const providerId = providerSelect.value as ProviderId;
+    await providerManager.setProvider(providerId);
+    await updateProviderUI(providerId);
+});
+
+// Model selection change
+modelSelect?.addEventListener('change', async () => {
+    await providerManager.setSelectedModel(currentProvider, modelSelect.value);
+});
+
+// Refresh models button
+refreshModelsBtn?.addEventListener('click', async () => {
+    const icon = document.getElementById('refreshModelsIcon');
+    if (icon) icon.classList.add('animate-spin');
+
+    await updateModels(currentProvider, true);
+
+    if (icon) icon.classList.remove('animate-spin');
+    showToast('Models refreshed', 'info');
+});
+
+// =====================
 // Toast Notifications
 // =====================
 function showToast(message: string, type: 'success' | 'error' | 'info' = 'info'): void {
@@ -167,17 +272,14 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'info')
 // Tab Navigation
 // =====================
 function switchTab(tabName: string): void {
-    // Update tab buttons
     tabs.forEach(tab => {
         tab.classList.toggle('active', tab.dataset.tab === tabName);
     });
 
-    // Update tabs container data attribute for indicator animation
     if (tabsContainer) {
         tabsContainer.dataset.active = tabName;
     }
 
-    // Show corresponding content with animation
     tabContents.forEach(content => {
         const isActive = content.id === `tab-${tabName}`;
         content.classList.toggle('active', isActive);
@@ -201,28 +303,24 @@ async function setupTheme(): Promise<void> {
         await toggleTheme();
     });
 
-    watchSystemTheme(() => {
-        // Theme changed via system preference
-    });
+    watchSystemTheme(() => { });
 }
 
 // =====================
 // API Key Management
 // =====================
-let keyVisible = false;
-
 toggleKeyBtn?.addEventListener('click', () => {
     keyVisible = !keyVisible;
     apiKeyInput.type = keyVisible ? 'text' : 'password';
     const icon = document.getElementById('toggleKeyIcon');
-    if (icon) {
-        setIcon(icon, keyVisible ? 'eyeOff' : 'eye');
-    }
+    if (icon) setIcon(icon, keyVisible ? 'eyeOff' : 'eye');
 });
 
 testKeyBtn?.addEventListener('click', async () => {
     const key = apiKeyInput.value.trim();
-    if (!key) {
+    const provider = getProvider(currentProvider);
+
+    if (provider.config.requiresApiKey && !key) {
         showToast('Please enter an API key', 'error');
         return;
     }
@@ -231,18 +329,19 @@ testKeyBtn?.addEventListener('click', async () => {
     testKeyBtn.classList.remove('success', 'error');
 
     try {
-        const response = await fetch('https://api.openai.com/v1/models', {
-            headers: { 'Authorization': `Bearer ${key}` }
-        });
+        const isValid = await provider.validateApiKey(key);
 
-        if (response.ok) {
+        if (isValid) {
             testKeyBtn.classList.remove('loading');
             testKeyBtn.classList.add('success');
             testKeyBtn.querySelector('.test-text')!.textContent = 'Valid';
-            showToast('API Key is valid!', 'success');
+            showToast(`${provider.config.name} API Key is valid!`, 'success');
 
             // Save the valid key
-            chrome.storage.local.set({ openaiApiKey: key });
+            await providerManager.setApiKey(currentProvider, key);
+
+            // Refresh models with new key
+            await updateModels(currentProvider, true);
         } else {
             throw new Error('Invalid key');
         }
@@ -253,29 +352,18 @@ testKeyBtn?.addEventListener('click', async () => {
         showToast('Invalid API Key', 'error');
     }
 
-    // Reset button after 3 seconds
     setTimeout(() => {
         testKeyBtn.classList.remove('success', 'error');
         testKeyBtn.querySelector('.test-text')!.textContent = 'Test';
     }, 3000);
 });
 
-// =====================
-// Model Refresh
-// =====================
-refreshModelsBtn?.addEventListener('click', async () => {
-    const icon = document.getElementById('refreshModelsIcon');
-    if (icon) {
-        icon.classList.add('animate-spin');
+// Save API key on input
+apiKeyInput?.addEventListener('blur', async () => {
+    const key = apiKeyInput.value.trim();
+    if (key) {
+        await providerManager.setApiKey(currentProvider, key);
     }
-
-    // Simulate model fetch (will be replaced with actual API call in Phase 2)
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    if (icon) {
-        icon.classList.remove('animate-spin');
-    }
-    showToast('Models refreshed', 'info');
 });
 
 // =====================
@@ -315,11 +403,9 @@ document.querySelectorAll('.number-input button').forEach(btn => {
 // Progress Management
 // =====================
 function updateProgress(stepNumber: number, status: string): void {
-    // Update progress bar
     const percentage = (stepNumber / 4) * 100;
     progressFill.style.width = `${percentage}%`;
 
-    // Update steps
     steps.forEach((step, index) => {
         step.classList.remove('active', 'complete');
         if (index + 1 < stepNumber) {
@@ -329,7 +415,6 @@ function updateProgress(stepNumber: number, status: string): void {
         }
     });
 
-    // Update status text
     statusText.textContent = status;
 }
 
@@ -345,13 +430,14 @@ function resetProgress(): void {
 generateBtn?.addEventListener('click', async () => {
     const apiKey = apiKeyInput.value.trim();
     const language = languageSelect.value;
+    const model = modelSelect.value;
+    const provider = getProvider(currentProvider);
 
-    if (!apiKey) {
+    if (provider.config.requiresApiKey && !apiKey) {
         showToast('API Key required', 'error');
         return;
     }
 
-    // Get current tab info
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.url?.includes('youtube.com/watch')) {
         showToast('Please open a YouTube video first', 'error');
@@ -364,7 +450,6 @@ generateBtn?.addEventListener('click', async () => {
         return;
     }
 
-    // Show progress
     progressContainer.classList.remove('hidden');
     resultContainer.classList.add('hidden');
     generateBtn.disabled = true;
@@ -372,18 +457,13 @@ generateBtn?.addEventListener('click', async () => {
     updateProgress(1, 'Extracting transcript...');
 
     try {
-        // Get model from settings
-        const settings = await chrome.storage.local.get(['model']);
-        const model = settings.model || 'gpt-4o-mini';
-
-        // Set timeout for no response
         let responseReceived = false;
         const timeoutId = setTimeout(() => {
             if (!responseReceived) {
                 showToast('Generation timed out. Check console for errors.', 'error');
                 resetUI();
             }
-        }, 120000); // 2 minute timeout
+        }, 120000);
 
         chrome.runtime.sendMessage({
             action: 'GENERATE_SUBTITLES',
@@ -391,12 +471,12 @@ generateBtn?.addEventListener('click', async () => {
             apiKey,
             language,
             model,
+            provider: currentProvider,
             videoTitle: tab.title || 'Unknown Video'
         }, async (response) => {
             responseReceived = true;
             clearTimeout(timeoutId);
 
-            // Check for Chrome runtime errors
             if (chrome.runtime.lastError) {
                 console.error('[BringYourSub] Runtime error:', chrome.runtime.lastError);
                 showToast('Error: ' + chrome.runtime.lastError.message, 'error');
@@ -418,7 +498,6 @@ generateBtn?.addEventListener('click', async () => {
                 showResult(response.subtitles);
                 showToast('Subtitles generated successfully!', 'success');
 
-                // Auto-apply if enabled
                 const autoSettings = await chrome.storage.local.get(['autoApply']);
                 if (autoSettings.autoApply) {
                     applySubtitlesToVideo(response.subtitles);
@@ -440,8 +519,6 @@ function showResult(subtitles: string): void {
     resultContainer.classList.remove('hidden');
     outputPreview.value = subtitles;
     generateBtn.disabled = false;
-
-    // Save generated subtitles for this video
     saveGeneratedSubtitles(subtitles);
 }
 
@@ -449,19 +526,13 @@ async function saveGeneratedSubtitles(subtitles: string): Promise<void> {
     try {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (!tab?.url?.includes('youtube.com/watch')) return;
-
         const videoId = new URL(tab.url).searchParams.get('v');
         if (!videoId) return;
-
         await chrome.storage.local.set({
-            [`generated_${videoId}`]: {
-                subtitles,
-                timestamp: Date.now()
-            }
+            [`generated_${videoId}`]: { subtitles, timestamp: Date.now() }
         });
-        console.log('[BringYourSub] Saved generated subtitles for video:', videoId);
     } catch (e) {
-        console.error('[BringYourSub] Failed to save generated subtitles:', e);
+        console.error('[BringYourSub] Failed to save:', e);
     }
 }
 
@@ -469,20 +540,16 @@ async function restoreGeneratedSubtitles(): Promise<void> {
     try {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (!tab?.url?.includes('youtube.com/watch')) return;
-
         const videoId = new URL(tab.url).searchParams.get('v');
         if (!videoId) return;
-
         const result = await chrome.storage.local.get(`generated_${videoId}`);
         const saved = result[`generated_${videoId}`];
-
-        if (saved && saved.subtitles) {
-            console.log('[BringYourSub] Restoring generated subtitles for video:', videoId);
+        if (saved?.subtitles) {
             outputPreview.value = saved.subtitles;
             resultContainer.classList.remove('hidden');
         }
     } catch (e) {
-        console.error('[BringYourSub] Failed to restore generated subtitles:', e);
+        console.error('[BringYourSub] Failed to restore:', e);
     }
 }
 
@@ -531,7 +598,6 @@ async function applySubtitlesToVideo(subtitles: string): Promise<void> {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) return;
 
-    // Get settings
     const settings = await chrome.storage.local.get(['fontSize', 'position', 'bgOpacity', 'enableDrag']);
 
     chrome.tabs.sendMessage(tab.id, {
@@ -554,7 +620,7 @@ async function applySubtitlesToVideo(subtitles: string): Promise<void> {
 // Settings Management
 // =====================
 saveSettingsBtn?.addEventListener('click', async () => {
-    const settings: Partial<Settings> = {
+    const settings = {
         fontSize: fontSizeSelect?.value,
         position: positionSelect?.value,
         autoApply: autoApplyCheckbox?.checked,
@@ -562,7 +628,6 @@ saveSettingsBtn?.addEventListener('click', async () => {
         enableDrag: enableDragCheckbox?.checked,
         bgOpacity: parseInt(bgOpacitySlider?.value || '75'),
         syncOffset: parseInt(syncOffsetInput?.value || '0'),
-        model: modelSelect?.value,
         dualSubtitles: dualSubtitlesToggle?.checked
     };
 
@@ -574,8 +639,18 @@ saveSettingsBtn?.addEventListener('click', async () => {
 // Load Saved Data
 // =====================
 async function loadSavedData(): Promise<void> {
+    // Initialize provider manager
+    await providerManager.init();
+
+    // Load provider
+    currentProvider = providerManager.getCurrentProviderId();
+    if (providerSelect) {
+        providerSelect.value = currentProvider;
+    }
+    await updateProviderUI(currentProvider);
+
+    // Load other settings
     const data = await chrome.storage.local.get([
-        'openaiApiKey',
         'targetLanguage',
         'fontSize',
         'position',
@@ -584,11 +659,9 @@ async function loadSavedData(): Promise<void> {
         'enableDrag',
         'bgOpacity',
         'syncOffset',
-        'model',
         'dualSubtitles'
     ]);
 
-    if (data.openaiApiKey) apiKeyInput.value = data.openaiApiKey;
     if (data.targetLanguage) languageSelect.value = data.targetLanguage;
     if (data.fontSize && fontSizeSelect) fontSizeSelect.value = data.fontSize;
     if (data.position && positionSelect) positionSelect.value = data.position;
@@ -600,26 +673,13 @@ async function loadSavedData(): Promise<void> {
         if (bgOpacityValue) bgOpacityValue.textContent = `${data.bgOpacity}%`;
     }
     if (data.syncOffset !== undefined && syncOffsetInput) syncOffsetInput.value = data.syncOffset.toString();
-    if (data.model && modelSelect) modelSelect.value = data.model;
     if (data.dualSubtitles !== undefined && dualSubtitlesToggle) dualSubtitlesToggle.checked = data.dualSubtitles;
 
-    // Restore any previously generated subtitles for current video
     restoreGeneratedSubtitles();
 }
 
-// Save language when changed
 languageSelect?.addEventListener('change', () => {
-    chrome.storage.local.set({ targetLanguage: languageSelect.value }, () => {
-        console.log('[BringYourSub] Language saved:', languageSelect.value);
-    });
-});
-
-// Save API key on every input
-apiKeyInput?.addEventListener('input', () => {
-    const key = apiKeyInput.value.trim();
-    if (key) {
-        chrome.storage.local.set({ openaiApiKey: key });
-    }
+    chrome.storage.local.set({ targetLanguage: languageSelect.value });
 });
 
 // =====================
@@ -678,7 +738,7 @@ async function init(): Promise<void> {
     await loadSavedData();
     await checkYouTubeVideo();
 
-    console.log('[BringYourSub] Popup initialized');
+    console.log('[BringYourSub] Popup initialized with provider:', currentProvider);
 }
 
 init();

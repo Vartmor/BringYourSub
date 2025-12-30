@@ -48,11 +48,32 @@
 
     <!-- Generate Tab -->
     <section id="tab-generate" class="tab-content active">
-      <!-- API Key Field -->
+      <!-- Provider Selection -->
       <div class="field">
+        <label for="provider">
+          <span class="label-icon" id="labelIconProvider"></span>
+          AI Provider
+        </label>
+        <select id="provider">
+          <optgroup label="Cloud Providers">
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic (Claude)</option>
+            <option value="google">Google (Gemini)</option>
+            <option value="groq">Groq</option>
+            <option value="openrouter">OpenRouter</option>
+          </optgroup>
+          <optgroup label="Local Providers">
+            <option value="lmstudio">LM Studio</option>
+            <option value="ollama">Ollama</option>
+          </optgroup>
+        </select>
+      </div>
+
+      <!-- API Key Field -->
+      <div class="field" id="apiKeyField">
         <label for="apiKey">
           <span class="label-icon" id="labelIconKey"></span>
-          API Key
+          <span id="apiKeyLabel">API Key</span>
         </label>
         <div class="input-group">
           <input type="password" id="apiKey" placeholder="sk-...">
